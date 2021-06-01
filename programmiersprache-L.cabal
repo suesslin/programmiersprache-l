@@ -37,6 +37,7 @@ library
 executable programmiersprache-L-exe
   main-is: Main.hs
   other-modules:
+      Tokenizer
       Paths_programmiersprache_L
   hs-source-dirs:
       app
