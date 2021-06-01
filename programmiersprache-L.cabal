@@ -37,6 +37,8 @@ library
 executable programmiersprache-L-exe
   main-is: Main.hs
   other-modules:
+      Models
+      Parser
       Tokenizer
       Paths_programmiersprache_L
   hs-source-dirs:
