@@ -1,60 +1,74 @@
 module Parser where
 
-    import Models (TokenizerResult, Token)
+    import Models (Token(..))
 
-    data Programm = P1 Ziel 
-                  | P2 Programmklausel Programm
-      deriving (Show)
+    type IsTrue = Bool
 
-    data Programmklausel = Pk1 NichtVariableLTerm Punkt 
-                         | Pk2 NichtVariableLTerm Ziel
-      deriving (Show)
+    -- Is using Lists fine here?
+    data Programm = Programm [Programmklausel] Ziel
+    data Programmklausel = Pk1 NVLTerm | Pk2 NVLTerm Ziel
+    data Ziel = Z1 Literal | Z2 Literal [Literal]
+    data Literal = Literal IsTrue LTerm 
+    data NVLTerm = NVLTerm String [LTerm]
+    data LTerm = LTVar String | LTNVar NVLTerm
 
-    -- Für die Wiederholung des Syntaxgraphen vom "Ziel"
-    data Teilziel = Tz1 Literal 
-                  | Tz2 Literal Komma Teilziel 
-      deriving (Show)
+    data Tree = TP Programm
+              | TPk Programmklausel
+              | TZ Ziel
+              | TL Literal
+              | TName String
+              | TNVLT NVLTerm
+              | TLT LTerm
+              | TLLT [LTerm]
 
-    data Ziel = Z1 ImpliziertDurch Literal Punkt
-              | Z2 ImpliziertDurch Teilziel Punkt
-      deriving (Show)
-
-    data Literal = L1 LTerm | L2 Not LTerm deriving (Show)
-
-    -- Für die Wiederholugn des Syntaxgraphen vom "NichtVariableLTerm"
-    data TeilNichtVariableLTerm = TnvLT1 LTerm | TnvLT2 LTerm Komma TeilNichtVariableLTerm
-
-    data NichtVariableLTerm = NvLT1 Name
-                            | NvLT2 Name KlammerAuf TeilNichtVariableLTerm KlammerZu
-      deriving (Show)
-
-    data LTerm = LT1 Variable | LT2 NichtVariableLTerm deriving (Show)
-
-    data Tree = Programm | Programmklausel | Teilziel | Ziel | Literal | TeilNichtVariableLTerm | NichtVariableLTerm | LTerm
     type Rule = [Token] -> (Tree, [Token])
  
     -- TODO: Better error handling
-    
     -- TODO: Maybe implement functor and just use first function
     lookAhead :: [Token] -> Token
-    lookAhead [] = error "List of symbols went empty whilst parsing"
+    lookAhead [] = error "List of symbols unexpectedly went empty whilst parsing"
     lookAhead (x:_) = x
 
-    
     -- TODO: Redo tail
-    tail' :: [Token] -> Token
+    tail' :: [Token] -> [Token]
     tail' [] = error "Jack, don't let go"
     tail' (_:xs) = xs
+    
+    lTerm :: Rule
+    lTerm ((Variable str):toks) = (TLT $ LTVar str, toks)
+    lterm toks = nichtVariableLTerm toks
 
-    -- nichtVariableLTerm :: Rule
-    -- nichtVariableLTerm tokens@(token:_) = 
-    --     let (tree, tokens') = name tokens
-    --     in 
-    --         case lookAhead tokens' of
-    --             KlammerAuf -> let (tree'', tokens'') = lTerm . tail' $ tokens'
-    --                           in 
-    --             _          -> error "FIXME"
+    name :: Rule 
+    name ((Name str):toks) = (TName str, toks)
+    name (tok:_) = error $ "Expected a name but got: " ++ (show tok) 
 
+    -- Helper function
+    teilNichtVariableLTerm :: Rule
+    teilNichtVariableLTerm toks =
+        let ((TLT ltvar), toks') = lterm toks
+        in 
+            case lookAhead toks' of
+                And       -> let (TLLT ltvars, toks'') = teilNichtVariableLTerm (tail' toks')
+                             in (TLLT $ [ltvar] ++ ltvars, toks'')
+                KlammerZu -> (TLLT [ltvar], tail' toks')
+                _         -> error $ "Expected AND or close parenthesis but got: " ++ (show $ lookAhead toks') 
 
-    -- parser :: [Token String] -> Tree
-    -- parser (x:xs) 
+    nichtVariableLTerm :: Rule
+    nichtVariableLTerm toks = 
+        let ((TName str), toks') = name toks
+        in
+            case lookAhead toks' of
+                KlammerAuf -> let (TLLT lterms, toks'') = teilNichtVariableLTerm (tail' toks')
+                              in (TNVLT $ NVLTerm str lterms, toks'')
+                _          -> error $ "Expected open parenthesis but got: " ++ (show $ lookAhead toks')
+
+    literal :: Rule
+    literal (Not:toks) =
+        let (TLT lterm, toks') = lTerm toks
+        in (TL $ Literal False lterm, toks')
+    literal toks = lTerm toks
+
+    -- TODO: Ziel, Programmklausel, Programm
+
+    -- -- parser :: [Token String] -> Tree
+    -- -- parser (x:xs) 

@@ -1,10 +1,10 @@
 module Tokenizer where
     import Data.Char ( isLetter, isDigit, isLower, isSpace, isUpper )
-    import Models (Token, TokenizerResult)
-
-    type Akkumulator = TokenizerResult
-
-    tokenizer :: String -> Akkumulator -> TokenizerResult
+    import Models (Token(..))
+    
+    type Akkumulator = [Token]
+    
+    tokenizer :: String -> Akkumulator -> [Token]
     tokenizer []                        akk = akk++[Ende]
     tokenizer (':':'-':xs)              akk = tokenizer xs (akk++[Implikation])
     tokenizer ('.':xs)                  akk = tokenizer xs (akk++[Punkt])
@@ -12,8 +12,8 @@ module Tokenizer where
     tokenizer ('(':xs)                  akk = tokenizer xs (akk++[KlammerAuf])
     tokenizer (')':xs)                  akk = tokenizer xs (akk++[KlammerZu])
     tokenizer ('n':'o':'t':x:xs)        akk
-        | not (isLetter x || isDigit x) = tokenizer (x:xs) (akk++[Not])
-        | otherwise                     = tokenizer (dropWhile isAllowed (x:xs)) (akk++[Name (takeWhile isAllowed ("not"++(x:xs)))])
+        | not (isLetter x || isDigit x)     = tokenizer (x:xs) (akk++[Not])
+        | otherwise                         = tokenizer (dropWhile isAllowed (x:xs)) (akk++[Name (takeWhile isAllowed ("not"++(x:xs)))])
     tokenizer (x:xs)                    akk
         | isSpace x = tokenizer xs akk
         | isLower x = tokenizer (dropWhile isAllowed xs) (akk++[Name (takeWhile isAllowed (x:xs)) ])
