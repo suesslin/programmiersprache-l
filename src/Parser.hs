@@ -37,31 +37,31 @@ module Parser where
     
     lTerm :: Rule
     lTerm ((Variable str):toks) = (TLT $ LTVar str, toks)
-    lterm toks = nichtVariableLTerm toks
+    lterm = nichtVariableLTerm 
 
     name :: Rule 
     name ((Name str):toks) = (TName str, toks)
-    name (tok:_) = error $ "Expected a name but got: " ++ (show tok) 
+    name (tok:_) = error $ "Expected a name but got: " ++ show tok
 
     -- Helper function
     teilNichtVariableLTerm :: Rule
     teilNichtVariableLTerm toks =
-        let ((TLT ltvar), toks') = lterm toks
+        let (TLT ltvar, toks') = lterm toks
         in 
             case lookAhead toks' of
                 And       -> let (TLLT ltvars, toks'') = teilNichtVariableLTerm (tail' toks')
-                             in (TLLT $ [ltvar] ++ ltvars, toks'')
+                             in (TLLT $ ltvar : ltvars, toks'')
                 KlammerZu -> (TLLT [ltvar], tail' toks')
-                _         -> error $ "Expected AND or close parenthesis but got: " ++ (show $ lookAhead toks') 
+                _         -> error $ "Expected AND or close parenthesis but got: " ++ show (lookAhead toks') 
 
     nichtVariableLTerm :: Rule
     nichtVariableLTerm toks = 
-        let ((TName str), toks') = name toks
+        let (TName str, toks') = name toks
         in
             case lookAhead toks' of
                 KlammerAuf -> let (TLLT lterms, toks'') = teilNichtVariableLTerm (tail' toks')
                               in (TNVLT $ NVLTerm str lterms, toks'')
-                _          -> error $ "Expected open parenthesis but got: " ++ (show $ lookAhead toks')
+                _          -> error $ "Expected open parenthesis but got: " ++ show (lookAhead toks')
 
     literal :: Rule
     literal (Not:toks) =
@@ -72,13 +72,13 @@ module Parser where
     -- Helper function
     reoccurringLiteral :: Rule
     reoccurringLiteral toks = 
-        let ((TL lit), toks') = literal toks
+        let (TL lit, toks') = literal toks
         in 
             case lookAhead toks' of
-                And   -> let ((TLL lits), toks'') = reoccurringLiteral (tail' toks')
-                         in (TLL $ [lit] ++ lits, toks'')
-                Punkt -> (TLL $ [lit], tail' toks')
-                _     -> error $ "Expected And or Punkt but got " ++ (show $ lookAhead toks')
+                And   -> let (TLL lits, toks'') = reoccurringLiteral (tail' toks')
+                         in (TLL $ lit : lits, toks'')
+                Punkt -> (TLL [lit], tail' toks')
+                _     -> error $ "Expected And or Punkt but got " ++ show (lookAhead toks')
 
     ziel :: Rule
     ziel (Implikation:toks) = reoccurringLiteral toks 
@@ -89,7 +89,7 @@ module Parser where
     --             And   -> let ((TLL lits), toks'') = reoccurringLiteral (tail' toks')
     --                      in (TLL $ [lit] ++ lits, toks'')
     --             Punkt -> (TZ $ Z1 tree, (tail' toks'))
-    ziel (tok:_) = error $ "Expected an Implication but got " ++ (show tok)
+    ziel (tok:_) = error $ "Expected an Implication but got " ++ show tok
 
 
         -- TODO: Programmklausel, Programm
