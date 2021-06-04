@@ -16,6 +16,7 @@ module Parser where
               | TPk Programmklausel
               | TZ Ziel
               | TL Literal
+              | TLL [Literal]
               | TName String
               | TNVLT NVLTerm
               | TLT LTerm
@@ -68,7 +69,30 @@ module Parser where
         in (TL $ Literal False lterm, toks')
     literal toks = lTerm toks
 
-    -- TODO: Ziel, Programmklausel, Programm
+    -- Helper function
+    reoccurringLiteral :: Rule
+    reoccurringLiteral toks = 
+        let ((TL lit), toks') = literal toks
+        in 
+            case lookAhead toks' of
+                And   -> let ((TLL lits), toks'') = reoccurringLiteral (tail' toks')
+                         in (TLL $ [lit] ++ lits, toks'')
+                Punkt -> (TLL $ [lit], tail' toks')
+                _     -> error $ "Expected And or Punkt but got " ++ (show $ lookAhead toks')
+
+    ziel :: Rule
+    ziel (Implikation:toks) = reoccurringLiteral toks 
+    -- ziel (Implikation:toks) = 
+    --     let ((TL lit), toks') = literal toks
+    --     in 
+    --         case lookAhead toks' of
+    --             And   -> let ((TLL lits), toks'') = reoccurringLiteral (tail' toks')
+    --                      in (TLL $ [lit] ++ lits, toks'')
+    --             Punkt -> (TZ $ Z1 tree, (tail' toks'))
+    ziel (tok:_) = error $ "Expected an Implication but got " ++ (show tok)
+
+
+        -- TODO: Programmklausel, Programm
 
     -- -- parser :: [Token String] -> Tree
     -- -- parser (x:xs) 
