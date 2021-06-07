@@ -4,13 +4,12 @@ module Parser where
 
     type IsTrue = Bool
 
-    -- Is using Lists fine here?
-    data Programm = Programm [Programmklausel] Ziel
-    data Programmklausel = Pk1 NVLTerm | Pk2 NVLTerm Ziel
-    data Ziel = Z1 Literal | Z2 Literal [Literal]
-    data Literal = Literal IsTrue LTerm 
-    data NVLTerm = NVLTerm String [LTerm]
-    data LTerm = LTVar String | LTNVar NVLTerm
+    data Programm = Programm [Programmklausel] Ziel deriving (Show, Eq)
+    data Programmklausel = Pk1 NVLTerm | Pk2 NVLTerm Ziel deriving (Show, Eq)
+    data Ziel = Ziel [Literal] deriving (Show, Eq)
+    data Literal = Literal IsTrue LTerm deriving (Show, Eq)
+    data NVLTerm = NVLTerm String [LTerm] deriving (Show, Eq)
+    data LTerm = LTVar String | LTNVar NVLTerm deriving (Show, Eq)
 
     data Tree = TP Programm
               | TPk Programmklausel
@@ -20,7 +19,7 @@ module Parser where
               | TName String
               | TNVLT NVLTerm
               | TLT LTerm
-              | TLLT [LTerm]
+              | TLLT [LTerm] deriving (Show, Eq)
 
     type Rule = [Token] -> (Tree, [Token])
  
@@ -30,14 +29,16 @@ module Parser where
     lookAhead [] = error "List of symbols unexpectedly went empty whilst parsing"
     lookAhead (x:_) = x
 
-    -- TODO: Redo tail
     tail' :: [Token] -> [Token]
     tail' [] = error "Jack, don't let go"
     tail' (_:xs) = xs
     
     lTerm :: Rule
-    lTerm ((Variable str):toks) = (TLT $ LTVar str, toks)
-    lterm = nichtVariableLTerm 
+    lTerm (tok:toks) = case tok of
+        (Variable str) -> (TLT $ LTVar str, toks)
+        (Name str)     -> let (TNVLT nvlTerm, toks') = nichtVariableLTerm (tok:toks)
+                          in (TLT $ LTNVar nvlTerm, toks')
+        _              -> error $ "Expected Variable or Name but got " ++ show tok
 
     name :: Rule 
     name ((Name str):toks) = (TName str, toks)
@@ -46,7 +47,7 @@ module Parser where
     -- Helper function
     teilNichtVariableLTerm :: Rule
     teilNichtVariableLTerm toks =
-        let (TLT ltvar, toks') = lterm toks
+        let (TLT ltvar, toks') = lTerm toks
         in 
             case lookAhead toks' of
                 And       -> let (TLLT ltvars, toks'') = teilNichtVariableLTerm (tail' toks')
@@ -61,13 +62,21 @@ module Parser where
             case lookAhead toks' of
                 KlammerAuf -> let (TLLT lterms, toks'') = teilNichtVariableLTerm (tail' toks')
                               in (TNVLT $ NVLTerm str lterms, toks'')
-                _          -> error $ "Expected open parenthesis but got: " ++ show (lookAhead toks')
+                _          -> (TNVLT $ NVLTerm str [], toks')
 
     literal :: Rule
     literal (Not:toks) =
         let (TLT lterm, toks') = lTerm toks
         in (TL $ Literal False lterm, toks')
-    literal toks = lTerm toks
+    literal toks@((Variable _):toks') = 
+        let (TLT lterm, toks') = lTerm toks
+        in (TL $ Literal True lterm, toks')
+    literal toks@((Name _):toks') = 
+        let (TLT lterm, toks') = lTerm toks
+        in (TL $ Literal True lterm, toks')
+    literal (tok:_) =
+        error $ "Expected Not, Variable or Name but got " ++ show tok
+
 
     -- Helper function
     reoccurringLiteral :: Rule
@@ -81,7 +90,13 @@ module Parser where
                 _     -> error $ "Expected And or Punkt but got " ++ show (lookAhead toks')
 
     ziel :: Rule
-    ziel (Implikation:toks) = reoccurringLiteral toks 
+    ziel (Implikation:toks) = case (lookAhead toks) of
+        Not          -> let (TLL literals, toks') = reoccurringLiteral toks 
+                        in (TZ $ Ziel literals, toks') 
+        (Variable _) -> let (TLL literals, toks') = reoccurringLiteral toks 
+                        in (TZ $ Ziel literals, toks') 
+        _            -> error $ "Expected Not or Variable but got " ++ (show $ lookAhead toks)
+    ziel (tok:_) = error $ "Expected an Implikation but got " ++ show tok             
     -- ziel (Implikation:toks) = 
     --     let ((TL lit), toks') = literal toks
     --     in 
@@ -89,10 +104,34 @@ module Parser where
     --             And   -> let ((TLL lits), toks'') = reoccurringLiteral (tail' toks')
     --                      in (TLL $ [lit] ++ lits, toks'')
     --             Punkt -> (TZ $ Z1 tree, (tail' toks'))
-    ziel (tok:_) = error $ "Expected an Implication but got " ++ show tok
 
+        -- TODO: Programm
 
-        -- TODO: Programmklausel, Programm
+    programmklausel :: Rule
+    programmklausel toks@((Name _):toks') = 
+        let (TNVLT nvlTerm, toks'') = nichtVariableLTerm toks
+        in 
+            case lookAhead toks'' of 
+                Punkt       -> (TPk $ Pk1 nvlTerm, tail' toks'')
+                Implikation -> let (TZ z, toks''') = ziel toks'' 
+                               in (TPk $ Pk2 nvlTerm z, toks''') 
+                _           -> error $ "Expected Punkt or Implikation but got " ++ show (lookAhead toks'')
+    programmklausel (tok:_) = error $ "Expected Name but got " ++ show tok
+
+    programm :: Rule
+    programm (tok:toks) = case tok of
+        (Name _)       -> let (TPk pk, toks'') = programmklausel (tok:toks)
+                          in 
+                              case (lookAhead toks'') of
+                                  (Name _)    -> let (TP (Programm pks z), toks''') = programm toks''
+                                                 in (TP $ Programm  ([pk] ++ pks) z, toks''')
+                                                 
+                                  Implikation -> let (TZ z, toks''') = ziel toks''
+                                                 in (TP $ Programm [pk] z, toks''')
+                                  _           -> error $ "Expected Name or Implikation but got " ++ show tok
+        Implikation -> let (TZ z, toks'') = ziel (tok:toks)
+                       in (TP $ Programm [] z, toks'')
+        _              -> error $ "Expected Name or Implikation but got " ++ show (tok)
 
     -- -- parser :: [Token String] -> Tree
     -- -- parser (x:xs) 
