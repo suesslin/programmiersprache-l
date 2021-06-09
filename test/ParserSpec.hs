@@ -74,6 +74,12 @@ module ParserSpec where
         (TNVLT $ NVLTerm "isFatherOf" [LTVar "Priest", LTVar "Hesekiel"], [Ende])
         (nichtVariableLTerm [Name "isFatherOf", KlammerAuf, Variable "Priest", And, Variable "Hesekiel", KlammerZu, Ende])
 
+    testNvlTermWithNestedNvlTerms = TestCase $ assertEqual 
+        "The nichtVariableLTerm must be properly parsed when containing multiple nested NVLTs"
+        (TNVLT $ NVLTerm "isSomething" [LTVar "A", LTNVar (NVLTerm "someName" [LTVar "B", LTNVar (NVLTerm "otherName" [])])], [Ende])
+        (nichtVariableLTerm [Name "isSomething", KlammerAuf, Variable "A", And, Name "someName", KlammerAuf, Variable "B", And, Name "otherName", KlammerZu, KlammerZu, Ende])
+
+
     {----------------------------------
                Tests for Ziel
     -----------------------------------}
@@ -145,6 +151,63 @@ module ParserSpec where
             (Ziel [Literal False (LTVar "A")]), [Ende])
         (programm [Name "test", Implikation, Variable "A", And, Not, Variable "B", Punkt, Name "another", Punkt, Implikation, Not, Variable "A", Punkt, Ende])
 
+
+    {------------------------------------
+     Tests for Reoccurring Literal Helper
+     ------------------------------------}
+
+    testReoccurringLiteralWithSinglePosLit = TestCase $ assertEqual 
+        "Optional Subliterals must be properly parsed when consisting of a single pos. literals"
+        (TLL $ [Literal True (LTVar "A")], [Ende])
+        (reoccurringLiteral [Variable "A", Punkt, Ende])
+
+    testReoccurringLiteralWithSingleNegLit = TestCase $ assertEqual 
+        "Optional Subliterals have to be properly parsed when consisting of a single neg. literals."
+        (TLL $ [Literal False (LTVar "B")], [Ende])
+        (reoccurringLiteral [Not, Variable "B", Punkt, Ende])
+
+    testReoccurringLiteralWithOnlyPositives = TestCase $ assertEqual 
+        "Optional Subliterals must be properly parsed when consisting only of multiple pos. literals"
+        (TLL $ [Literal True (LTVar "A"), Literal True (LTVar "B")], [Ende])
+        (reoccurringLiteral [Variable "A", And, Variable "B", Punkt, Ende])
+
+    testReoccurringLiteralWithOnlyNegatives = TestCase $ assertEqual
+        "Optional Subliterals must be parsed properly when consisting only of multiple neg. literals. "
+        (TLL $ [Literal False (LTVar "A"), Literal False (LTVar "B")], [Ende])
+        (reoccurringLiteral [Not, Variable "A", And, Not, Variable "B", Punkt, Ende])
+    
+    testReoccurringLiteralWithMultipleMixed = TestCase $ assertEqual  
+        "Optional Subliterals must be parsed properly when consisting of multiple pos. and neg. literals."
+        (TLL $ [Literal True (LTVar "A"), Literal False (LTVar "B"), Literal False (LTVar "C"), Literal True (LTVar "D")], [Ende])
+        (reoccurringLiteral [Variable "A", And, Not, Variable "B", And, Not, Variable "C", And, Variable "D", Punkt, Ende])
+
+
+
+    {---------------------------------- 
+        Tests for teilNichtVariableLTerm 
+     ----------------------------------}
+
+    testTeilNVLTWithOnlyName = TestCase $ assertEqual
+        "TeilNVLT must be parsed properly when consisting of only a Name (NVLT)"
+        (TLLT $ [LTNVar (NVLTerm "someName" [])], [Ende])
+        (teilNichtVariableLTerm [Name "someName", KlammerZu, Ende])
+
+    testTeilNVLTWithSingleVariable = TestCase $ assertEqual 
+        "TeilNVLT must be parsed properly when consisting of only a Variable (LT)"
+        (TLLT $ [LTVar "A"], [Ende])
+        (teilNichtVariableLTerm [Variable "A", KlammerZu, Ende])
+
+    testTeilNVLTWithMultipleVariables = TestCase $ assertEqual
+        "TeilNVLT must be parsed properly when consisting of multiple Variables (LT)"
+        (TLLT $ [LTVar "A", LTVar "B", LTVar "C"], [Ende])
+        (teilNichtVariableLTerm [Variable "A", And, Variable "B", And, Variable "C", KlammerZu, Ende])
+
+    testTeilNVLTWithNestedNVLT = TestCase $ assertEqual
+        "TeilNVLT must be parsed properly when consisting of nested NVLTs and Variables"
+        (TLLT $ [LTVar "A", LTNVar (NVLTerm "someName" [LTVar "B", LTNVar (NVLTerm "otherName" [])])], [Ende])
+        (teilNichtVariableLTerm [Variable "A", And, Name "someName", KlammerAuf, Variable "B", And, Name "otherName", KlammerZu, KlammerZu, Ende])
+
+
     {----------------------------------
                 TestLists 
     -----------------------------------}
@@ -159,7 +222,8 @@ module ParserSpec where
                    
     nvlTermTest = [testNvlTermWithNameOnly
                   ,testNvlTermWithNameAndOneLTerm
-                  ,testNvlTermWithNameAndMultipleLTerms]
+                  ,testNvlTermWithNameAndMultipleLTerms
+                  , testNvlTermWithNestedNvlTerms]
 
     zielTests = [testZielWithSinglePositiveLiteral
                 ,testZielWithSingleNegativeLiteral
@@ -171,3 +235,14 @@ module ParserSpec where
     programmTests = [testProgrammWithZiel
                     ,testProgrammWithSinglePkAndZiel
                     ,testProgrammWithMultiplePkAndZiel]
+
+    reoccurringLiteralTests = [testReoccurringLiteralWithSinglePosLit
+                              ,testReoccurringLiteralWithSingleNegLit
+                              ,testReoccurringLiteralWithOnlyPositives
+                              ,testReoccurringLiteralWithOnlyNegatives
+                              ,testReoccurringLiteralWithMultipleMixed]
+    
+    teilNichtVariableLTermTests = [testTeilNVLTWithOnlyName
+                                  ,testTeilNVLTWithSingleVariable
+                                  ,testTeilNVLTWithMultipleVariables
+                                  ,testTeilNVLTWithNestedNVLT]
