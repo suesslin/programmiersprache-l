@@ -9,7 +9,6 @@ module ParserSpec where
     -- TODO: Test error cases
     -- TODO: Check if all first sets are right. Ziel for instance only checked for
     --       pos. literals, not negative ones.
-    -- TODO: Add tests for helper functions
 
     {----------------------------------
              Tests for Literals
@@ -17,7 +16,7 @@ module ParserSpec where
 
     testPositiveLiteral = TestCase $ assertEqual
         "The literal rule must be properly parsed when not negated"
-        ((TL $ Literal True (LTVar "Ludwig")), [Ende])
+        (TL $ Literal True (LTVar "Ludwig"), [Ende])
         (literal [Variable "Ludwig", Ende])
 
     testNegatedLiteral = TestCase $ assertEqual
@@ -151,6 +150,19 @@ module ParserSpec where
             (Ziel [Literal False (LTVar "A")]), [Ende])
         (programm [Name "test", Implikation, Variable "A", And, Not, Variable "B", Punkt, Name "another", Punkt, Implikation, Not, Variable "A", Punkt, Ende])
 
+    {----------------------------------
+              Tests for Parser
+    -----------------------------------}
+
+    testParserWithProgrammWithMultiplePkAndZiel = TestCase $ assertEqual
+        "The parser must return a Tree when the passed tokens are appopriate according to the syntax rules"
+        (TP $ Programm 
+            [Pk2 
+                (NVLTerm "test" []) 
+                (Ziel [Literal True (LTVar "A"), Literal False (LTVar "B")])
+            ,Pk1 $ NVLTerm "another" []] 
+            (Ziel [Literal False (LTVar "A")]))
+        (parser [Name "test", Implikation, Variable "A", And, Not, Variable "B", Punkt, Name "another", Punkt, Implikation, Not, Variable "A", Punkt, Ende])
 
     {------------------------------------
      Tests for Reoccurring Literal Helper
@@ -158,27 +170,27 @@ module ParserSpec where
 
     testReoccurringLiteralWithSinglePosLit = TestCase $ assertEqual 
         "Optional Subliterals must be properly parsed when consisting of a single pos. literals"
-        (TLL $ [Literal True (LTVar "A")], [Ende])
+        (TLL [Literal True (LTVar "A")], [Ende])
         (reoccurringLiteral [Variable "A", Punkt, Ende])
 
     testReoccurringLiteralWithSingleNegLit = TestCase $ assertEqual 
         "Optional Subliterals have to be properly parsed when consisting of a single neg. literals."
-        (TLL $ [Literal False (LTVar "B")], [Ende])
+        (TLL [Literal False (LTVar "B")], [Ende])
         (reoccurringLiteral [Not, Variable "B", Punkt, Ende])
 
     testReoccurringLiteralWithOnlyPositives = TestCase $ assertEqual 
         "Optional Subliterals must be properly parsed when consisting only of multiple pos. literals"
-        (TLL $ [Literal True (LTVar "A"), Literal True (LTVar "B")], [Ende])
+        (TLL [Literal True (LTVar "A"), Literal True (LTVar "B")], [Ende])
         (reoccurringLiteral [Variable "A", And, Variable "B", Punkt, Ende])
 
     testReoccurringLiteralWithOnlyNegatives = TestCase $ assertEqual
         "Optional Subliterals must be parsed properly when consisting only of multiple neg. literals. "
-        (TLL $ [Literal False (LTVar "A"), Literal False (LTVar "B")], [Ende])
+        (TLL [Literal False (LTVar "A"), Literal False (LTVar "B")], [Ende])
         (reoccurringLiteral [Not, Variable "A", And, Not, Variable "B", Punkt, Ende])
     
     testReoccurringLiteralWithMultipleMixed = TestCase $ assertEqual  
         "Optional Subliterals must be parsed properly when consisting of multiple pos. and neg. literals."
-        (TLL $ [Literal True (LTVar "A"), Literal False (LTVar "B"), Literal False (LTVar "C"), Literal True (LTVar "D")], [Ende])
+        (TLL [Literal True (LTVar "A"), Literal False (LTVar "B"), Literal False (LTVar "C"), Literal True (LTVar "D")], [Ende])
         (reoccurringLiteral [Variable "A", And, Not, Variable "B", And, Not, Variable "C", And, Variable "D", Punkt, Ende])
 
 
@@ -189,27 +201,26 @@ module ParserSpec where
 
     testTeilNVLTWithOnlyName = TestCase $ assertEqual
         "TeilNVLT must be parsed properly when consisting of only a Name (NVLT)"
-        (TLLT $ [LTNVar (NVLTerm "someName" [])], [Ende])
+        (TLLT [LTNVar (NVLTerm "someName" [])], [Ende])
         (teilNichtVariableLTerm [Name "someName", KlammerZu, Ende])
 
     testTeilNVLTWithSingleVariable = TestCase $ assertEqual 
         "TeilNVLT must be parsed properly when consisting of only a Variable (LT)"
-        (TLLT $ [LTVar "A"], [Ende])
+        (TLLT [LTVar "A"], [Ende])
         (teilNichtVariableLTerm [Variable "A", KlammerZu, Ende])
 
     testTeilNVLTWithMultipleVariables = TestCase $ assertEqual
         "TeilNVLT must be parsed properly when consisting of multiple Variables (LT)"
-        (TLLT $ [LTVar "A", LTVar "B", LTVar "C"], [Ende])
+        (TLLT [LTVar "A", LTVar "B", LTVar "C"], [Ende])
         (teilNichtVariableLTerm [Variable "A", And, Variable "B", And, Variable "C", KlammerZu, Ende])
 
     testTeilNVLTWithNestedNVLT = TestCase $ assertEqual
         "TeilNVLT must be parsed properly when consisting of nested NVLTs and Variables"
-        (TLLT $ [LTVar "A", LTNVar (NVLTerm "someName" [LTVar "B", LTNVar (NVLTerm "otherName" [])])], [Ende])
+        (TLLT [LTVar "A", LTNVar (NVLTerm "someName" [LTVar "B", LTNVar (NVLTerm "otherName" [])])], [Ende])
         (teilNichtVariableLTerm [Variable "A", And, Name "someName", KlammerAuf, Variable "B", And, Name "otherName", KlammerZu, KlammerZu, Ende])
 
-
     {----------------------------------
-                TestLists 
+              Lists of Tests
     -----------------------------------}
 
     literalTests = [testPositiveLiteral
@@ -223,7 +234,7 @@ module ParserSpec where
     nvlTermTest = [testNvlTermWithNameOnly
                   ,testNvlTermWithNameAndOneLTerm
                   ,testNvlTermWithNameAndMultipleLTerms
-                  , testNvlTermWithNestedNvlTerms]
+                  ,testNvlTermWithNestedNvlTerms]
 
     zielTests = [testZielWithSinglePositiveLiteral
                 ,testZielWithSingleNegativeLiteral
@@ -235,6 +246,8 @@ module ParserSpec where
     programmTests = [testProgrammWithZiel
                     ,testProgrammWithSinglePkAndZiel
                     ,testProgrammWithMultiplePkAndZiel]
+
+    parserTests = [testParserWithProgrammWithMultiplePkAndZiel]
 
     reoccurringLiteralTests = [testReoccurringLiteralWithSinglePosLit
                               ,testReoccurringLiteralWithSingleNegLit

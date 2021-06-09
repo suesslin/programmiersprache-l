@@ -6,7 +6,7 @@ module Parser where
 
     data Programm = Programm [Programmklausel] Ziel deriving (Show, Eq)
     data Programmklausel = Pk1 NVLTerm | Pk2 NVLTerm Ziel deriving (Show, Eq)
-    data Ziel = Ziel [Literal] deriving (Show, Eq)
+    newtype Ziel = Ziel [Literal] deriving (Show, Eq)
     data Literal = Literal IsTrue LTerm deriving (Show, Eq)
     data NVLTerm = NVLTerm String [LTerm] deriving (Show, Eq)
     data LTerm = LTVar String | LTNVar NVLTerm deriving (Show, Eq)
@@ -90,22 +90,13 @@ module Parser where
                 _     -> error $ "Expected And or Punkt but got " ++ show (lookAhead toks')
 
     ziel :: Rule
-    ziel (Implikation:toks) = case (lookAhead toks) of
+    ziel (Implikation:toks) = case lookAhead toks of
         Not          -> let (TLL literals, toks') = reoccurringLiteral toks 
                         in (TZ $ Ziel literals, toks') 
         (Variable _) -> let (TLL literals, toks') = reoccurringLiteral toks 
                         in (TZ $ Ziel literals, toks') 
-        _            -> error $ "Expected Not or Variable but got " ++ (show $ lookAhead toks)
+        _            -> error $ "Expected Not or Variable but got " ++ show (lookAhead toks)
     ziel (tok:_) = error $ "Expected an Implikation but got " ++ show tok             
-    -- ziel (Implikation:toks) = 
-    --     let ((TL lit), toks') = literal toks
-    --     in 
-    --         case lookAhead toks' of
-    --             And   -> let ((TLL lits), toks'') = reoccurringLiteral (tail' toks')
-    --                      in (TLL $ [lit] ++ lits, toks'')
-    --             Punkt -> (TZ $ Z1 tree, (tail' toks'))
-
-        -- TODO: Programm
 
     programmklausel :: Rule
     programmklausel toks@((Name _):toks') = 
@@ -120,18 +111,26 @@ module Parser where
 
     programm :: Rule
     programm (tok:toks) = case tok of
-        (Name _)       -> let (TPk pk, toks'') = programmklausel (tok:toks)
+        (Name _)    -> let (TPk pk, toks'') = programmklausel (tok:toks)
                           in 
-                              case (lookAhead toks'') of
+                              case lookAhead toks'' of
                                   (Name _)    -> let (TP (Programm pks z), toks''') = programm toks''
-                                                 in (TP $ Programm  ([pk] ++ pks) z, toks''')
+                                                 in (TP $ Programm  (pk : pks) z, toks''')
                                                  
                                   Implikation -> let (TZ z, toks''') = ziel toks''
                                                  in (TP $ Programm [pk] z, toks''')
                                   _           -> error $ "Expected Name or Implikation but got " ++ show tok
         Implikation -> let (TZ z, toks'') = ziel (tok:toks)
                        in (TP $ Programm [] z, toks'')
-        _              -> error $ "Expected Name or Implikation but got " ++ show (tok)
+        _           -> error $ "Expected Name or Implikation but got " ++ show tok
 
-    -- -- parser :: [Token String] -> Tree
-    -- -- parser (x:xs) 
+    parser :: [Token] -> Tree
+    parser toks = 
+        let (tree, toks') = programm toks
+        in 
+            case lookAhead toks' of
+                Ende -> tree
+                _    -> error $
+                               "Expected to finish with Ende but it didn't.\n" 
+                            ++ "These tokens failed parsing: " ++ show toks' ++ "."
+                            ++ "They could be parsed thus far:\n" ++ show tree
