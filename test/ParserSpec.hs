@@ -16,14 +16,15 @@ module ParserSpec where
 
     assertErrorCall :: String -> String -> IO a -> Assertion 
     assertErrorCall preface expectedErrorMsg actual = do 
-        result <- catches 
+        actualCatch <- catches 
                     (actual >> return (Just "No Error was thrown.")) 
                     [Handler (\(error::ErrorCall) -> 
-                        return $ if ((takeWhile (\x -> x /= '\n')) $ (displayException error)) == expectedErrorMsg
-                                 then Nothing
-                                 else Just ("Expected error || " ++ expectedErrorMsg ++ " || but got the error || " ++ (displayException error) ++ " ||"))                   
+                        let actualerr = ((takeWhile (\x -> x /= '\n')) $ (displayException error))
+                        in return $ if actualerr == expectedErrorMsg
+                                    then Nothing
+                                    else Just ("Expected error || " ++ expectedErrorMsg ++ " || but got the error || " ++ actualerr ++ " ||"))                   
                     ]
-        case result of 
+        case actualCatch of 
             Nothing -> return ()
             Just msg -> assertFailure (preface ++ " Test Result : " ++ msg) 
 
