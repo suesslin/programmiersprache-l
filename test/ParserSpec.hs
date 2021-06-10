@@ -1,14 +1,31 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module ParserSpec where
     import Test.HUnit
     import System.Exit
-    import Control.Exception (try, ErrorCall(ErrorCall), evaluate)
-
-    import Parser
+    import Control.Exception 
+    import Parser 
     import Models (Token(..))
 
     -- TODO: Test error cases
     -- TODO: Check if all first sets are right. Ziel for instance only checked for
     --       pos. literals, not negative ones.
+
+    {- --------------------------------------------
+        Helper Function for Testing of Error Calls
+     ----------------------------------------------}
+
+    assertErrorCall :: String -> String -> IO a -> Assertion 
+    assertErrorCall preface expectedErrorMsg actual = do 
+        result <- catches 
+                    (actual >> return (Just "No Error was thrown.")) 
+                    [Handler (\(error::ErrorCall) -> 
+                        return $ if ((takeWhile (\x -> x /= '\n')) $ (displayException error)) == expectedErrorMsg
+                                 then Nothing
+                                 else Just ("Expected error || " ++ expectedErrorMsg ++ " || but got the error || " ++ (displayException error) ++ " ||"))                   
+                    ]
+        case result of 
+            Nothing -> return ()
+            Just msg -> assertFailure (preface ++ " Test Result : " ++ msg) 
 
     {----------------------------------
              Tests for Literals
@@ -23,6 +40,7 @@ module ParserSpec where
         "The literal rule must be properly parsed when negated"
         (TL $ Literal False (LTVar "Ludwig"), [Ende])
         (literal [Not, Variable "Ludwig", Ende])
+    
 
     -- -- TODO: Test case that tests for the error
     -- testPositiveLiteralWithWrongBegining = TestCase $ assertError
@@ -193,7 +211,10 @@ module ParserSpec where
         (TLL [Literal True (LTVar "A"), Literal False (LTVar "B"), Literal False (LTVar "C"), Literal True (LTVar "D")], [Ende])
         (reoccurringLiteral [Variable "A", And, Not, Variable "B", And, Not, Variable "C", And, Variable "D", Punkt, Ende])
 
-
+    testReoccurringLiteralEndOnAnd = TestCase $ assertErrorCall
+        "Having an optional subliteral not end on And should cause an error."
+        "Expected And or Punkt but got KlammerAuf"
+        (evaluate $ reoccurringLiteral [Variable "A", KlammerAuf]) 
 
     {---------------------------------- 
         Tests for teilNichtVariableLTerm 
@@ -253,7 +274,8 @@ module ParserSpec where
                               ,testReoccurringLiteralWithSingleNegLit
                               ,testReoccurringLiteralWithOnlyPositives
                               ,testReoccurringLiteralWithOnlyNegatives
-                              ,testReoccurringLiteralWithMultipleMixed]
+                              ,testReoccurringLiteralWithMultipleMixed
+                              ,testReoccurringLiteralEndOnAnd]
     
     teilNichtVariableLTermTests = [testTeilNVLTWithOnlyName
                                   ,testTeilNVLTWithSingleVariable
