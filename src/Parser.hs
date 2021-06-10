@@ -1,6 +1,7 @@
 module Parser where
 
     import Models (Token(..))
+    import Tokenizer
 
     type IsTrue = Bool
 
@@ -95,7 +96,9 @@ module Parser where
                         in (TZ $ Ziel literals, toks') 
         (Variable _) -> let (TLL literals, toks') = reoccurringLiteral toks 
                         in (TZ $ Ziel literals, toks') 
-        _            -> error $ "Expected Not or Variable but got " ++ show (lookAhead toks)
+        (Name _)     -> let (TLL literals, toks') = reoccurringLiteral toks
+                        in (TZ $ Ziel literals, toks')
+        _            -> error $ "Expected Not, Variable or Name but got " ++ show (lookAhead toks)
     ziel (tok:_) = error $ "Expected an Implikation but got " ++ show tok             
 
     programmklausel :: Rule
