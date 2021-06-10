@@ -14,12 +14,14 @@ module ParserSpec where
         Helper Function for Testing of Error Calls
      ----------------------------------------------}
 
-    assertErrorCall :: String -> String -> IO a -> Assertion 
-    assertErrorCall preface expectedErrorMsg actual = do 
+    assertErrorCall :: String -> String -> a -> Assertion 
+    assertErrorCall preface expectedErrorMsg actual = 
+        let actualIO = evaluate actual 
+        in do 
         actualCatch <- catches 
-                    (actual >> return (Just "No Error was thrown.")) 
+                    (actualIO >> return (Just "No Error was thrown.")) 
                     [Handler (\(error::ErrorCall) -> 
-                        let actualerr = ((takeWhile (\x -> x /= '\n')) $ (displayException error))
+                        let actualerr = takeWhile (\x -> x /= '\n') $ displayException error
                         in return $ if actualerr == expectedErrorMsg
                                     then Nothing
                                     else Just ("Expected error || " ++ expectedErrorMsg ++ " || but got the error || " ++ actualerr ++ " ||"))                   
@@ -215,7 +217,7 @@ module ParserSpec where
     testReoccurringLiteralEndOnAnd = TestCase $ assertErrorCall
         "Having an optional subliteral not end on And should cause an error."
         "Expected And or Punkt but got KlammerAuf"
-        (evaluate $ reoccurringLiteral [Variable "A", KlammerAuf]) 
+        (reoccurringLiteral [Variable "A", KlammerAuf]) 
 
     {---------------------------------- 
         Tests for teilNichtVariableLTerm 
