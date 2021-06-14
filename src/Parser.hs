@@ -42,6 +42,7 @@ tail' [] = error "Jack, don't let go"
 tail' (_ : xs) = xs
 
 lTerm :: Rule
+lTerm [] = error "List of tokens unexpectedly went empty but should've ended on Ende"
 lTerm (tok : toks) = case tok of
   (Variable str) -> (TLT $ LTVar str, toks)
   (Name str) ->
@@ -50,6 +51,7 @@ lTerm (tok : toks) = case tok of
   _ -> error $ "Expected Variable or Name but got " ++ show tok
 
 name :: Rule
+name [] = error "List of tokens unexpectedly went empty but should've ended on Ende"
 name ((Name str) : toks) = (TName str, toks)
 name (tok : _) = error $ "Expected a name but got: " ++ show tok
 
@@ -74,6 +76,7 @@ nichtVariableLTerm toks =
         _ -> (TNVLT $ NVLTerm str [], toks')
 
 literal :: Rule
+literal [] = error "List of tokens unexpectedly went empty but should've ended on Ende"
 literal (Not : toks) =
   let (TLT lterm, toks') = lTerm toks
    in (TL $ Literal False lterm, toks')
@@ -98,6 +101,7 @@ reoccurringLiteral toks =
         _ -> error $ "Expected And or Punkt but got " ++ show (lookAhead toks')
 
 ziel :: Rule
+ziel [] = error "List of tokens unexpectedly went empty but should've ended on Ende"
 ziel (Implikation : toks) = case lookAhead toks of
   Not ->
     let (TLL literals, toks') = reoccurringLiteral toks
@@ -112,6 +116,7 @@ ziel (Implikation : toks) = case lookAhead toks of
 ziel (tok : _) = error $ "Expected an Implikation but got " ++ show tok
 
 programmklausel :: Rule
+programmklausel [] = error "List of tokens unexpectedly went empty but should've ended on Ende"
 programmklausel toks@((Name _) : toks') =
   let (TNVLT nvlTerm, toks'') = nichtVariableLTerm toks
    in case lookAhead toks'' of
@@ -123,6 +128,7 @@ programmklausel toks@((Name _) : toks') =
 programmklausel (tok : _) = error $ "Expected Name but got " ++ show tok
 
 programm :: Rule
+programm [] = error "List of tokens unexpectedly went empty but should've ended on Ende"
 programm (tok : toks) = case tok of
   (Name _) ->
     let (TPk pk, toks'') = programmklausel (tok : toks)
