@@ -35,6 +35,7 @@ library
   build-depends:
       HUnit ==1.6.1.0
     , base >=4.7 && <5
+    , brittany >=0.13
   default-language: Haskell2010
 
 executable programmiersprache-L-exe
@@ -47,6 +48,7 @@ executable programmiersprache-L-exe
   build-depends:
       HUnit ==1.6.1.0
     , base >=4.7 && <5
+    , brittany >=0.13
     , programmiersprache-L
   default-language: Haskell2010
 
@@ -62,5 +64,6 @@ test-suite programmiersprache-L-test
   build-depends:
       HUnit ==1.6.1.0
     , base >=4.7 && <5
+    , brittany >=0.13
     , programmiersprache-L
   default-language: Haskell2010
