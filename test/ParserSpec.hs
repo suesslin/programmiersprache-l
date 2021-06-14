@@ -109,6 +109,11 @@ testLTermWithNichtVariableLTermAndMultipleLTerms =
       (TLT $ LTNVar (NVLTerm "factorial" [LTVar "X", LTVar "Y"]), [Ende])
       (lTerm [Name "factorial", KlammerAuf, Variable "X", And, Variable "Y", KlammerZu, Ende])
 
+testErrorLTermWithoutNameOrVariable = TestCase $ assertErrorCall
+        "The lTerm function has to throw an error when the next Token isn't of Name or Variable"
+        "Expected Variable or Name but got KlammerAuf"
+        (lTerm [KlammerAuf, Variable "X", KlammerZu])
+
 {----------------------------------
     Tests for NichtVariableLTerm
 -----------------------------------}
@@ -215,6 +220,15 @@ testPkWithNVLTAndZiel =
       )
       (programmklausel [Name "test", Implikation, Variable "A", And, Not, Variable "B", Punkt, Ende])
 
+    testErrorPKZiel = TestCase $ assertErrorCall
+        "A Pk has to throw an error when not properly followed with a Punkt or Implikation"
+        "Expected Punkt or Implikation but got KlammerZu"
+        (programmklausel [Name "test", KlammerAuf, Variable "X", KlammerZu, KlammerZu, Ende])
+
+    testErrorPKOhneName = TestCase $ assertErrorCall
+        "A Pk has to throw an error when being called without a Name Token"
+        "Expected Name but got Punkt"
+        (programmklausel [Punkt, Ende])
 {----------------------------------
           Tests for Programm
 -----------------------------------}
@@ -260,6 +274,17 @@ testProgrammWithMultiplePkAndZiel =
       )
       (programm [Name "test", Implikation, Variable "A", And, Not, Variable "B", Punkt, Name "another", Punkt, Implikation, Not, Variable "A", Punkt, Ende])
 
+    testErrorProgrammWithoutZiel = TestCase $ assertErrorCall
+        "Not starting with a Pk or Ziel should lead to an error"
+        "Expected Name or Implikation but got Variable \"A\""
+        (programm [Variable "A"])
+
+    --This function doesn't throw an error, but using ghci I found everything to be working correctly. An error gets thrown, but because of the recursion or lazy evaluation in ghc, the error doesn't show up at the right place. 
+    --The Parser doesn't compile without a Ziel as the last part of a Programm, as it should, this test was supposed to test just that.
+    --testErrorProgrammWithMultiplePkAndNoZiel = TestCase $ assertErrorCall
+    --    "After parsing a Fakt or a Pk, not parsing a new Pk/Fakt(Starting with Name) or Ziel(Starting with Implikation) should lead to an error"
+    --    "Expected Name or Implikation but got KlammerAuf"
+    --    (programm [Name "test", KlammerAuf, Variable "A", KlammerZu, Punkt, Name "test2", Implikation, Variable "B", And, Variable "C", Punkt, KlammerAuf])    
 {----------------------------------
           Tests for Parser
 -----------------------------------}
@@ -407,7 +432,8 @@ lTermTests =
   [ testLTermWithVariable,
     testLTermWithNVLTermNameOnly,
     testLTermWithNichtVariableLTermAndSingleLTerm,
-    testLTermWithNichtVariableLTermAndMultipleLTerms
+    testLTermWithNichtVariableLTermAndMultipleLTerms,
+    testErrorLTermWithoutNameOrVariable
   ]
 
 nvlTermTest =
@@ -428,13 +454,16 @@ zielTests =
 
 pkTests =
   [ testPkWithNVLTAndPeriod,
-    testPkWithNVLTAndZiel
+    testPkWithNVLTAndZiel,
+    testErrorPKOhneName,
+    testErrorPKOhneZiel
   ]
 
 programmTests =
   [ testProgrammWithZiel,
     testProgrammWithSinglePkAndZiel,
-    testProgrammWithMultiplePkAndZiel
+    testProgrammWithMultiplePkAndZiel,
+    testErrorProgrammWithoutZiel
   ]
 
 parserTests = [testParserWithProgrammWithMultiplePkAndZiel]
