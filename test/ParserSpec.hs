@@ -14,7 +14,7 @@ module ParserSpec where
         Helper Function for Testing of Error Calls
      ----------------------------------------------}
 
-    -- TODO: Fix Handling of errors in functions called by evaluated function [assertErrorCall can't handle recursion atm.]
+    -- TODO: Fix Handling of errors in functions called by evaluated function [assertErrorCall can't handle recursion so far]
     assertErrorCall :: String -> String -> a -> Assertion 
     assertErrorCall preface expectedErrorMsg actual = 
         let actualIO = evaluate actual 
@@ -22,7 +22,7 @@ module ParserSpec where
         actualCatch <- catches 
                     (actualIO >> return (Just "No Error was thrown.")) 
                     [Handler (\(error::ErrorCall) -> 
-                        let actualerr = takeWhile (\x -> x /= '\n') $ displayException error
+                        let actualerr = takeWhile (/= '\n') $ displayException error
                         in return $ if actualerr == expectedErrorMsg
                                     then Nothing
                                     else Just ("Expected error || " ++ expectedErrorMsg ++ " || but got the error || " ++ actualerr ++ " ||"))                   
@@ -134,6 +134,23 @@ module ParserSpec where
         "The ziel rule must be properly parsed when containing multiple literals"
         (TZ $ Ziel [Literal True (LTVar "A"), Literal False (LTVar "B")], [Ende])
         (ziel [Implikation, Variable "A", And, Not, Variable "B", Punkt, Ende])
+
+    testErrorZielAndFirstSymbolNotImplikation = TestCase $ assertErrorCall
+        "The Ziel rule must throw a certain error when not starting with an Implikation"
+        "Expected an Implikation but got And"
+        (ziel [And, Variable "Test", Punkt, Ende])
+
+    testErrorZielAndSecondSymbolNotALiteral = TestCase $ assertErrorCall
+        "The Ziel rule must throw a certain error when Implication is not followed by a literal"
+        "Expected Not, Variable or Name but got And"
+        (ziel [Implikation, And, Punkt, Ende])
+    
+    -- testErrorZielNotEndingOnPunkt = TestCase $ assertErrorCall
+    --     "The Ziel rule must throw a certain error when not ending on Punkt"
+    --     "Expected And or Punkt but got Ende"
+    --     (ziel [Implikation, Not, Variable "A", And, Variable "B", Ende])
+    -- Manual test shows it oes actually fail:
+    -- Exception: Expected And or Punkt but got Ende 
 
     {----------------------------------
           Tests for Programmklausel
@@ -296,6 +313,8 @@ module ParserSpec where
 
     literalTests = [testPositiveLiteral
                    ,testNegatedLiteral
+
+                   -- Error tests
                    ,testErrorPositiveLiteralWithWrongBeginning]
 
     lTermTests   = [testLTermWithVariable
@@ -310,7 +329,11 @@ module ParserSpec where
 
     zielTests = [testZielWithSinglePositiveLiteral
                 ,testZielWithSingleNegativeLiteral
-                ,testZielWithMultipleLiterals]
+                ,testZielWithMultipleLiterals
+                                
+                -- Error Tests
+                ,testErrorZielAndFirstSymbolNotImplikation
+                ,testErrorZielAndSecondSymbolNotALiteral]
 
     pkTests = [testPkWithNVLTAndPeriod
               ,testPkWithNVLTAndZiel]
@@ -326,10 +349,14 @@ module ParserSpec where
                               ,testReoccurringLiteralWithOnlyPositives
                               ,testReoccurringLiteralWithOnlyNegatives
                               ,testReoccurringLiteralWithMultipleMixed
+
+                              -- Error Tests
                               ,testErrorReoccurringLiteralLackOfPunkt]
 
     teilNichtVariableLTermTests = [testTeilNVLTWithOnlyName
                                   ,testTeilNVLTWithSingleVariable
                                   ,testTeilNVLTWithMultipleVariables
                                   ,testTeilNVLTWithNestedNVLT
+
+                                  -- Error Tests
                                   ,testErrorTeilNVLTInvalidStartToken]
