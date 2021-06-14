@@ -3,7 +3,7 @@ module ParserSpec where
     import Test.HUnit
     import System.Exit
     import Control.Exception 
-    import Parser 
+    import Parser
     import Models (Token(..))
 
     -- TODO: Test error cases
@@ -14,6 +14,7 @@ module ParserSpec where
         Helper Function for Testing of Error Calls
      ----------------------------------------------}
 
+    -- TODO: Fix Handling of errors in functions called by evaluated function [assertErrorCall can't handle recursion atm.]
     assertErrorCall :: String -> String -> a -> Assertion 
     assertErrorCall preface expectedErrorMsg actual = 
         let actualIO = evaluate actual 
@@ -44,12 +45,24 @@ module ParserSpec where
         (TL $ Literal False (LTVar "Ludwig"), [Ende])
         (literal [Not, Variable "Ludwig", Ende])
     
-
-    -- -- TODO: Test case that tests for the error
-    -- testPositiveLiteralWithWrongBegining = TestCase $ assertError
-    --     "The literal rule must throw an error when starting with an unexpected char"
-    --     ("Expected Not, Variable or Name but got " ++ show Implikation)
-    --     (literal [Implikation, Variable "Ludwig"])
+    testErrorPositiveLiteralWithWrongBeginning = TestCase $ assertErrorCall
+        "The literal rule must throw an error when starting with an unexpected char"
+        "Expected Not, Variable or Name but got Implikation"
+        (literal [Implikation, Variable "Ludwig"])
+    
+    {- testErrorDoubleNegativeLiteral = TestCase $ assertErrorCall
+        "Literals with more than one negation should result in an error."
+        "Expected Variable or Name but got Not"
+        (literal [Not, Not, Variable "Ludwig", Punkt, Ende]) 
+        Rekursiver Test; vorerst ausgeklammert.
+        Bei manueller Prüfung erfolgreich. -}
+    
+    {- testErrorUnfinishedLiteral = TestCase $ assertErrorCall
+        "Literals can't end on anything but LTerm."
+        ("Expected Variable or Name but got " ++ show Punkt)
+        (literal [Not, Punkt, Ende]) 
+        Rekursiver Test; vorerst ausgeklammert.
+        Bei manueller Prüfung erfolgreich. -}
 
     {----------------------------------
               Tests for LTerms
@@ -214,10 +227,17 @@ module ParserSpec where
         (TLL [Literal True (LTVar "A"), Literal False (LTVar "B"), Literal False (LTVar "C"), Literal True (LTVar "D")], [Ende])
         (reoccurringLiteral [Variable "A", And, Not, Variable "B", And, Not, Variable "C", And, Variable "D", Punkt, Ende])
 
-    testReoccurringLiteralEndOnAnd = TestCase $ assertErrorCall
-        "Having an optional subliteral not end on And should cause an error."
-        "Expected And or Punkt but got KlammerAuf"
-        (reoccurringLiteral [Variable "A", KlammerAuf]) 
+{-     testErrorReoccurringLiteralEndOnAnd = TestCase $ assertErrorCall
+        "Having an optional subliteral end on And followed by Punkt should cause an error."
+        ("Expected Not, Variable or Name but got " ++ show Punkt)
+        (reoccurringLiteral [Variable "A", And, Punkt, Ende]) 
+        rekursiver Test; vorerst ausgeklammert.
+        Bei manueller Prüfung erfolgreich.-} 
+        
+    testErrorReoccurringLiteralLackOfPunkt = TestCase $ assertErrorCall
+        "Having an optional subliteral end without parsing Punkt should cause an error."
+        ("Expected And or Punkt but got " ++ show KlammerAuf) 
+        (reoccurringLiteral [Variable "A", KlammerAuf])
 
     {---------------------------------- 
         Tests for teilNichtVariableLTerm 
@@ -243,12 +263,40 @@ module ParserSpec where
         (TLLT [LTVar "A", LTNVar (NVLTerm "someName" [LTVar "B", LTNVar (NVLTerm "otherName" [])])], [Ende])
         (teilNichtVariableLTerm [Variable "A", And, Name "someName", KlammerAuf, Variable "B", And, Name "otherName", KlammerZu, KlammerZu, Ende])
 
+{-     testErrorTeilNVLTInvalidEnd = TestCase $ assertErrorCall
+        "TeilNVLT has to end on Punkt or KlammerZu."
+        ("Expected Variable or Name but got " ++ show Punkt)
+        (teilNichtVariableLTerm [Variable "A", And, Name "someName", KlammerAuf, Punkt, Ende]) 
+        rekursiver Test; vorerst ausgeklammert.
+        Bei manueller Prüfung erfolgreich.-}
+    
+{-     testErrorTeilNVLTInvalidContinuationAfterLTerm = TestCase $ assertErrorCall 
+        "TeilNVLT only continues if And is parsed."
+        ("Expected AND or close parenthesis but got: " ++ show KlammerAuf)
+        (teilNichtVariableLTerm [Variable "A", KlammerAuf, Variable "B", Punkt, Ende]) 
+        rekursiver Test; vorerst ausgeklammert.
+        Bei manueller Prüfung erfolgreich. -}
+    
+{-     testErrorTeilNVLTInvalidContinuationAfterAnd = TestCase $ assertErrorCall
+        "TeilNVLT should only parse LTerms after And is parsed."
+        ("Expected Variable or Name but got " ++ show And)
+        (teilNichtVariableLTerm [Variable "A", And, And, Punkt, Ende]) 
+        rekursiver Test; vorerst ausgeklammert.
+        Bei manueller Prüfung erfolgreich. -}
+
+    testErrorTeilNVLTInvalidStartToken = TestCase $ assertErrorCall
+        "TeilNVLT has to parse an LTerm after being called."
+        ("Expected Variable or Name but got " ++ show KlammerAuf)
+        (teilNichtVariableLTerm [KlammerAuf, Variable "A", Punkt, Ende])
+
+
     {----------------------------------
               Lists of Tests
     -----------------------------------}
 
     literalTests = [testPositiveLiteral
-                   ,testNegatedLiteral]
+                   ,testNegatedLiteral
+                   ,testErrorPositiveLiteralWithWrongBeginning]
 
     lTermTests   = [testLTermWithVariable
                    ,testLTermWithNVLTermNameOnly
@@ -278,9 +326,10 @@ module ParserSpec where
                               ,testReoccurringLiteralWithOnlyPositives
                               ,testReoccurringLiteralWithOnlyNegatives
                               ,testReoccurringLiteralWithMultipleMixed
-                              ,testReoccurringLiteralEndOnAnd]
-    
+                              ,testErrorReoccurringLiteralLackOfPunkt]
+
     teilNichtVariableLTermTests = [testTeilNVLTWithOnlyName
                                   ,testTeilNVLTWithSingleVariable
                                   ,testTeilNVLTWithMultipleVariables
-                                  ,testTeilNVLTWithNestedNVLT]
+                                  ,testTeilNVLTWithNestedNVLT
+                                  ,testErrorTeilNVLTInvalidStartToken]
