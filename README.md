@@ -9,7 +9,6 @@ Ziel ist es die im Skript »Übersetzerbau – Abstrakte Maschinen« von den Au
 * Build tool: [stack](https://hackage.haskell.org/package/stack)
 
 ## Gruppenmitglieder
-* Brandl Andreas
 * [D'Amelio Marco](damelio@cip.ifi.lmu.de)
 * [Müller Lukas Andreas](muellerlu@cip.ifi.lmu.de)
 * [Seilmaier Maximilian](seilmaier@cip.ifi.lmu.de)
