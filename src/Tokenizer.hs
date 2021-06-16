@@ -1,24 +1,27 @@
-module Tokenizer where
+module Tokenizer (tokenize) where
 
 import Data.Char (isDigit, isLetter, isLower, isSpace, isUpper)
 import Models (Token (..))
 
 type Akkumulator = [Token]
 
-tokenizer :: String -> Akkumulator -> [Token]
-tokenizer [] akk = akk ++ [Ende]
-tokenizer (':' : '-' : xs) akk = tokenizer xs (akk ++ [Implikation])
-tokenizer ('.' : xs) akk = tokenizer xs (akk ++ [Punkt])
-tokenizer (',' : xs) akk = tokenizer xs (akk ++ [And])
-tokenizer ('(' : xs) akk = tokenizer xs (akk ++ [KlammerAuf])
-tokenizer (')' : xs) akk = tokenizer xs (akk ++ [KlammerZu])
-tokenizer ('n' : 'o' : 't' : x : xs) akk
-  | not (isLetter x || isDigit x) = tokenizer (x : xs) (akk ++ [Not])
-  | otherwise = tokenizer (dropWhile isAllowed (x : xs)) (akk ++ [Name (takeWhile isAllowed ("not" ++ (x : xs)))])
-tokenizer (x : xs) akk
-  | isSpace x = tokenizer xs akk
-  | isLower x = tokenizer (dropWhile isAllowed xs) (akk ++ [Name (takeWhile isAllowed (x : xs))])
-  | isUpper x = tokenizer (dropWhile isAllowed xs) (akk ++ [Variable (takeWhile isAllowed (x : xs))])
+tokenize :: String -> [Token]
+tokenize str = tokenize' str [] 
+
+tokenize' :: String -> Akkumulator -> [Token]
+tokenize' [] akk = akk ++ [Ende]
+tokenize' (':' : '-' : xs) akk = tokenize' xs (akk ++ [Implikation])
+tokenize' ('.' : xs) akk = tokenize' xs (akk ++ [Punkt])
+tokenize' (',' : xs) akk = tokenize' xs (akk ++ [And])
+tokenize' ('(' : xs) akk = tokenize' xs (akk ++ [KlammerAuf])
+tokenize' (')' : xs) akk = tokenize' xs (akk ++ [KlammerZu])
+tokenize' ('n' : 'o' : 't' : x : xs) akk
+  | not (isLetter x || isDigit x) = tokenize' (x : xs) (akk ++ [Not])
+  | otherwise = tokenize' (dropWhile isAllowed (x : xs)) (akk ++ [Name (takeWhile isAllowed ("not" ++ (x : xs)))])
+tokenize' (x : xs) akk
+  | isSpace x = tokenize' xs akk
+  | isLower x = tokenize' (dropWhile isAllowed xs) (akk ++ [Name (takeWhile isAllowed (x : xs))])
+  | isUpper x = tokenize' (dropWhile isAllowed xs) (akk ++ [Variable (takeWhile isAllowed (x : xs))])
   | otherwise = akk ++ [Unbekannt (x : xs)]
 
 isAllowed :: Char -> Bool

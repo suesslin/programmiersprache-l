@@ -1,10 +1,10 @@
 module Main where
 
-import Tokenizer (tokenizer)
 import Parser
+import Tokenizer (tokenize)
 
 main :: IO ()
 main = do
-    let result = tokenizer "BaCdE:-...;" []
-    print "Test"
-    print . show $ result
+  let result = tokenize "BaCdE:-...;"
+  print "Test"
+  print . show $ result

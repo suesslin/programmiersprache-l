@@ -1,4 +1,4 @@
-module Parser where
+module Parser (parse, Tree (..), Programm, Programmklausel, Ziel, Literal, NVLTerm, LTerm) where
 
 import Models (Token (..))
 import Tokenizer
@@ -145,8 +145,8 @@ programm (tok : toks) = case tok of
      in (TP $ Programm [] z, toks'')
   _ -> error $ "Expected Name or Implikation but got " ++ show tok
 
-parser :: [Token] -> Tree
-parser toks =
+parse :: [Token] -> Tree
+parse toks =
   let (tree, toks') = programm toks
    in case lookAhead toks' of
         Ende -> tree
