@@ -1,4 +1,4 @@
-module Parser (parse, Tree (..), Programm, Programmklausel, Ziel, Literal, NVLTerm, LTerm) where
+module Parser where
 
 import Models (Token (..))
 import Tokenizer
