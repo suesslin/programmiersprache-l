@@ -1,13 +1,11 @@
-module AbstractMachineSpec where 
+module AbstractMachineSpec where
 
-import Models 
+import AbstractMachine
+import Models
 import Parser
-import Tokenizer
-import AbstractMachine 
 import Test.HUnit
+import Tokenizer
 
-<<<<<<< Updated upstream
-=======
 {- {- testUebersetzungBodySingleLiteral = TestCase $ assertEqual
     "."
     (["push q","call","backtrackQ"])
@@ -18,4 +16,3 @@ testUebersetzungMiniLOnlyZielSingleLit = TestCase $assertEqual
     ([push "a",call,backtrackQ])
     (uebersetzungMiniL (TP (Programm [] (Ziel [Literal True (LTNVar (NVLTerm "a" []))]))) [])
 TODO -}
->>>>>>> Stashed changes
