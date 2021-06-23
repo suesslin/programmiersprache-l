@@ -28,6 +28,7 @@ library
       AbstractMachine
       Models
       Parser
+      Stack
       Tokenizer
   other-modules:
       Paths_programmiersprache_L
@@ -59,6 +60,7 @@ test-suite programmiersprache-L-test
   other-modules:
       AbstractMachineSpec
       ParserSpec
+      StackSpec
       Paths_programmiersprache_L
   hs-source-dirs:
       test
