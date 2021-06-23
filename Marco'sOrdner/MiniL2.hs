@@ -21,12 +21,19 @@ module MiniL2 where
 
     --TODO Pointer entspricht momentan den Pointern auf den Stack und worauf der Stack zeigt, im Stack ist jedes (4x + 2)te Elememt ein Pointer auf den Stack (C 0 meint also das erste Element des Stacks.)
 
-    data Pointer      = Nil | C Integer deriving (Show)
-    data StackElement = A Atom | I Pointer deriving (Show)--Elements, able to be in our Stack 
+    data Pointer      = Nil | C Integer
+    data StackElement = A Atom | I Pointer --Elements, able to be in our Stack 
 
     instance Eq Pointer where 
         C x == C y = x == y
         _   == _   = False
+    
+    instance Show Pointer where
+        show (C x) = "c" ++ show x
+        show Nil = "Nil"
+    instance Show StackElement where
+        show (A atom) = show atom
+        show (I pointer) = show pointer
 
     instance Ord Pointer where
         compare (C x) (C y) = compare x y
@@ -253,7 +260,7 @@ module MiniL2 where
  
     main :: IO()
     main = do
-             let zielcode = uebersetzungMiniL(parser(tokenizer "p:-q.\nq:-r.\nr.\n:-p,r." [])) []
+             let zielcode = uebersetzungMiniL(parse(tokenize "p:-q.\nq:-r.\nr.\n:-p,r.")) []
              let start = ((Nil, Nil, C (-1), (cGoal zielcode)), False, [])
              let tupel@((c,r,t,p),b,stack) = befehlsZyklus zielcode start
              when (b) (putStrLn "no (more) solutions")
