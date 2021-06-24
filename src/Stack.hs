@@ -44,7 +44,7 @@ stackSizeOf (Stack content) = length content
 
 -- TODO: Change order: Int -> Stack a -> a
 stackItemAtLocation :: Stack a -> Int -> a
-stackItemAtLocation (Stack content) 0 = head content
+stackItemAtLocation (Stack content) 0   = head content
 stackItemAtLocation (Stack content) pos = content !! pos
 
 stackWithReplacedItemAt :: Stack a -> Int -> a -> Stack a
