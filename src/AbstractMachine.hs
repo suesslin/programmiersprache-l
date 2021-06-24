@@ -114,7 +114,7 @@ codeGen parsetree = üb parsetree (Stack [])
 
 push :: Atom -> I -> Zielcode -> I
 push atom ((b, t, c, _, p), stack) code =
-  ( (b, t + 4, t + 1, c + 1, p + 1),
+  ( (b, t + 4, t + 1, t + 2, p + 1),
     stackTake t stack
       <> Stack
         [CodeAddress $ cFirst code, CodeAddress c, CodeAddress $ p + 3, CodeAtom atom]
