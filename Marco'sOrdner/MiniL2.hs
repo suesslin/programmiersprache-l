@@ -20,20 +20,17 @@ module MiniL2 where
 
 
     --TODO Pointer entspricht momentan den Pointern auf den Stack und worauf der Stack zeigt, im Stack ist jedes (4x + 2)te Elememt ein Pointer auf den Stack (C 0 meint also das erste Element des Stacks.)
-
-    data Pointer      = Nil | C Integer
     data StackElement = A Atom | I Pointer --Elements, able to be in our Stack 
 
-    instance Eq Pointer where 
-        C x == C y = x == y
-        _   == _   = False
-    
-    instance Show Pointer where
-        show (C x) = "c" ++ show x
-        show Nil = "Nil"
     instance Show StackElement where
         show (A atom) = show atom
-        show (I pointer) = show pointer
+        show (I Nil)  = "Nil"
+        show (I pointer) = "c" ++ show pointer
+    
+    instance Eq StackElement where
+        (A x) == (A y) = x == y
+        (I x) == (I y) = x == y
+        _     == _     = False
 
     instance Ord Pointer where
         compare (C x) (C y) = compare x y
@@ -41,10 +38,6 @@ module MiniL2 where
         compare (C x)  Nil  = GT 
         compare Nil    Nil  = EQ
 
-    instance Eq StackElement where
-        (A x) == (A y) = x == y
-        (I x) == (I y) = x == y
-        _     == _     = False
 
     type B = Bool --backtrack flag
     type T = Pointer  --Top of Stack
@@ -97,17 +90,6 @@ module MiniL2 where
     snd':: [a] -> a
     snd' = head . tail
     
-    -- plus Funktionen für den Typ Pointer
-    addPP :: Pointer -> Pointer -> Pointer
-    addPP Nil Nil = Nil
-    addPP Nil x   = x
-    addPP x   Nil = x
-    addPP (C x) (C y) = C (x+y)
-
-    addPI :: Pointer -> Integer -> Pointer 
-    addPI Nil      x = (C x)
-    addPI (C y) x = (C (y+x))
-
     --Stack und Registerverändernde Operationen
     push:: Atom -> Zielcode -> I
     push atom zielcode ((c,r,t,p),b,stack) = ( (addPI t 1, addPI t 2, addPI t 4, addPI p 1),
@@ -184,19 +166,19 @@ module MiniL2 where
     cNext Nil     ziel = Nil
     cNext c@(C x) ziel
             | c > letzteKlausel (cLast ziel) (reverse ziel) [] = Nil 
-            | otherwise                                         = lookForReturn (drop (fromInteger x) ziel) (x+1)
+            | otherwise                                         = lookForReturn (drop x ziel) (x+1)
 
     --returns the index of the last command(always prompt)
     cLast:: Zielcode -> Pointer
     cLast     [] = error "something went wrong whilst translating3"
-    cLast (x:xs) = C $ (toInteger (length (x:xs)) -1)
+    cLast (x:xs) = C $ (length (x:xs) -1)
 
     --Returns the index of the first command of the programms goal 
     cGoal :: Zielcode -> Pointer
     cGoal     [] = error "something went wrong whilst translating4"
-    cGoal (x:xs) = cGoal' (reverse(x:xs)) (toInteger (length (x:xs)))
+    cGoal (x:xs) = cGoal' (reverse(x:xs)) (length (x:xs))
 
-    cGoal' :: Zielcode -> Integer -> Pointer
+    cGoal' :: Zielcode -> Int -> Pointer
     cGoal' []             index = error "No Goal found."
     cGoal' ("returnL":xs) index = C (index)
     cGoal' (x:xs) index = cGoal' xs (index-1)
@@ -227,7 +209,7 @@ module MiniL2 where
     isThere  (C z) gesucht (x:xs)      = isThere (C (z-1)) gesucht xs
 
     --Hilfsfunktion fuer cNext
-    lookForReturn :: Zielcode -> Integer -> Pointer
+    lookForReturn :: Zielcode -> Int -> Pointer
     lookForReturn []             zahl = Nil
     lookForReturn ("returnL":xs) zahl = C zahl
     lookForReturn (x:xs)         zahl = lookForReturn xs (zahl+1)
@@ -243,7 +225,7 @@ module MiniL2 where
     showCommand :: Zielcode -> (Adressreg,B,Stack) -> Pointer -> String
     showCommand zielcode@(string:rest) zustand@((c,r,t,p),b,stack) x 
                                            | (C 0) == x = head zielcode
-                                           | (C (toInteger (length(zielcode)))) <= x = error "Suchanfrage out of range"
+                                           | (C (length(zielcode))) <= x = error "Suchanfrage out of range"
                                            | x < (C 0)  = error "Keine Negativen Suchanfragen"
                                            | otherwise  = showCommand rest zustand (addPI x (-1))
 
