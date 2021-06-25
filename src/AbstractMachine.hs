@@ -122,29 +122,29 @@ push atom ((b, t, c, _, p), stack) code =
 
 unify :: Atom -> I -> I
 unify atom ((_, t, c, r, p), stack) =
-  let b' = stackItemAtLocation stack (pToInt (addPi c 3)) /= CodeAtom atom
+  let b' = stackItemAtLocation (pToInt (addPi c 3)) stack /= CodeAtom atom
    in ((b', t, c, r, addPi p 1), stack)
 
 call :: I -> Zielcode -> I
 call ((b, t, c, r, p), stack) code =
-  if stackItemAtLocation stack (pToInt c) == CodeAddress Nil -- TODO,actually just undefinied
+  if stackItemAtLocation (pToInt c) stack == CodeAddress Nil -- TODO,actually just undefinied
     then ((True, t, c, r, addPi p 1), stack)
     else
-      let p' = fromJust . stackItemToInt $ stackItemAtLocation stack (pToInt c)
+      let p' = fromJust . stackItemToInt $ stackItemAtLocation (pToInt c) stack
           stack' =
-            stackWithReplacedItemAt stack (pToInt c) . CodeAddress $
-              cNext
-                code
-                (fromJust . stackItemToInt $ stackItemAtLocation stack (pToInt c))
+            stackInsertAtLocation 
+               (pToInt c) 
+            (     CodeAddress(cNext code (fromJust . stackItemToInt $ stackItemAtLocation (pToInt c) stack))) 
+                     stack
        in ((b, t, c, r, p'), stack')
 
 -- possible problem; nur logisches entkellern, untested
 returnL :: I -> I
 returnL ((b, t, c, r, p), stack) =
-  let p' = fromJust . stackItemToInt $ stackItemAtLocation stack (pToInt (addPi r 1))
-   in if stackItemAtLocation stack (pToInt r) /= CodeAddress Nil
+  let p' = fromJust . stackItemToInt $ stackItemAtLocation (pToInt (addPi r 1)) stack
+   in if stackItemAtLocation (pToInt r) stack /= CodeAddress Nil
         then
-          ( (b, t, c, addPi (fromJust (stackItemToInt $ stackItemAtLocation stack (pToInt r))) 1, p'),
+          ( (b, t, c, addPi (fromJust (stackItemToInt $ stackItemAtLocation (pToInt r) stack)) 1, p'),
             stack
           )
         else ((b, t, c, r, p'), stack)
@@ -167,27 +167,27 @@ backtrackQ reg@((b, t, c, r, p), stack) code =
       let ((b'', t'', c'', r'', p''), stack'') =
             until
               ( \((b', t', c', r', p'), stack') ->
-                  (stackItemAtLocation stack' (pToInt c') == CodeAddress Nil)
-                    && (stackItemAtLocation stack' (pToInt r') /= CodeAddress Nil)
+                  (stackItemAtLocation (pToInt c') stack' == CodeAddress Nil)
+                    && (stackItemAtLocation (pToInt r') stack' /= CodeAddress Nil)
               )
               backtrackWhile
               ((b, t, c, r, p), stack)
-       in case stackItemAtLocation stack'' (pToInt c'') of
+       in case stackItemAtLocation (pToInt c'') stack'' of
             CodeAddress Nil -> ((b'', t'', c'', r'', cLast code), stack'')
             _ ->
-              let p''' = fromJust $ stackItemToInt $ stackItemAtLocation stack'' (pToInt c'')
+              let p''' = fromJust $ stackItemToInt $ stackItemAtLocation (pToInt c'') stack''
                   stack''' =
-                    stackWithReplacedItemAt
-                      stack''
+                    stackInsertAtLocation 
                       (pToInt c'')
                       (CodeAddress $ cNext code c'')
+                      stack'' 
                in ((False, t'', c'', r'', p'''), stack''')
     else ((b, t, c, r, addPi p 1), stack)
   where
     backtrackWhile :: I -> I
     backtrackWhile ((b2, t2, c2, r2, p2), stack) =
       backtrackWhile
-        ((b2, addPi c2 3, fromJust . stackItemToInt $ stackItemAtLocation stack (pToInt r2), p2, addPi c2 1), stack)
+        ((b2, addPi c2 3, fromJust . stackItemToInt $ stackItemAtLocation (pToInt r2) stack, p2, addPi c2 1), stack)
 
 -- TODO: Discuss how else to solve this: Since prompt ist the last instruction, perhaps --       impurely through main?
 prompt :: I -> Zielcode -> I -- greedy prompt without IO, temporary solution
@@ -215,24 +215,25 @@ transformN :: [Command] -> Int -> Stack String
 transformN code amount = Stack (map (take amount . show) code)
 
 cFirst :: Zielcode -> Pointer
-cFirst (Stack code) = Pointer $ stackLocationFirstItemOfKind (transformN code 5) "unify" -- doesnt really use command datatype, rather its show repr.
+cFirst (Stack code) = Pointer $ stackLocationFirstItemOfKind "unify" (transformN code 5)  -- doesnt really use command datatype, rather its show repr.
 
+--currently tells you distance to next "unify" given a location, hence no absolute value. TODO: FIX ME!!!, error lies in the use of drop. 
 cNext :: Zielcode -> Pointer -> Pointer
 cNext (Stack code) Nil = Nil
 cNext (Stack code) (Pointer address) =
   addPi
-    (Pointer $ stackLocationFirstItemOfKind (transformN (drop (address + 1) code) 5) "unify")
+    (Pointer $ stackLocationFirstItemOfKind "unify" (transformN (drop (address + 1) code) 5))
     1
 
 -- +1 needed because drop shrinks list by one
 
 cLast :: Zielcode -> Pointer
-cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind (transformN code 6) "prompt"
+cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind "prompt" (transformN code 6)
 
 cGoal :: Zielcode -> Pointer
 cGoal (Stack code) =
   addPi
-    (Pointer $ stackLocationLastItemOfKind (transformN code 6) "return")
+    (Pointer $ stackLocationLastItemOfKind "return" (transformN code 6))
     1
 
 -- the +1 is needed because start of goal is determined by checking the address of the last return statement
@@ -267,6 +268,7 @@ runner reg (Stack []) code = reg
 
 code :: Zielcode
 code = codeGen (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
+
 
 initial :: I
 initial = ((False, Pointer (-1), Nil, Nil, cGoal code), initStack)
