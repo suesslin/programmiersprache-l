@@ -9,6 +9,7 @@ import Tokenizer
 
 -- TODO: Reorganize signatures: Zielcode -> ... (better currying/partial application)
 -- TODO: Reconsider places that used fromJust (unsafe)
+-- FIXME: In some places, regs@ refers to the regs and the stack. This is wrong! Fix it.
 
 -- Register
 type B = Bool
@@ -132,10 +133,10 @@ call ((b, t, c, r, p), stack) code =
     else
       let p' = fromJust . stackItemToInt $ stackItemAtLocation (pToInt c) stack
           stack' =
-            stackInsertAtLocation 
-               (pToInt c) 
-            (     CodeAddress(cNext code (fromJust . stackItemToInt $ stackItemAtLocation (pToInt c) stack))) 
-                     stack
+            stackInsertAtLocation
+              (pToInt c)
+              (CodeAddress (cNext code (fromJust . stackItemToInt $ stackItemAtLocation (pToInt c) stack)))
+              stack
        in ((b, t, c, r, p'), stack')
 
 -- possible problem; nur logisches entkellern, untested
@@ -149,45 +150,47 @@ returnL ((b, t, c, r, p), stack) =
           )
         else ((b, t, c, r, p'), stack)
 
-{-Meine Variante von backtrackQ, da fehlt noch was, weil cNext nicht gescheit funktioniert und ich nicht sicher bin, ob ich die Stackfunktionen richtig verwendet habe.
-backtrackQ:: I -> Zielcode -> I
-backtrackQ reg@((b,t,c,r,p),stack) code
-                              | b == False = ((b,t,c,r, addPi p 1), stack)
-                              | b == True  = if (stackItemAtLocation stack (pToInt c) == CodeAddress Nil) && (stackItemAtLocation stack (pToInt r) /= CodeAddress Nil)
-                                             then backtrackQ ((b,addPi (fromJust $ stackItemToInt $ stackItemAtLocation stack (pToInt r)) 3, fromJust $ stackItemToInt $ stackItemAtLocation stack (pToInt r),addPi ( fromJust $ stackItemToInt $ stackItemAtLocation stack (pToInt r)) 1,p),stack) code
-                                             else if (stackItemAtLocation stack (pToInt c) == CodeAddress Nil)
-                                                  then ((b,t,c,r,cLast code), stack)
-                                                  else ((False,t,c,r, fromJust $ stackItemToInt $ stackItemAtLocation stack (pToInt c)), (stackWithReplacedItemAt stack (pToInt (cNext code c)) (CodeAddress (cNext code c))))
-
--}
 backtrackQ :: I -> Zielcode -> I
-backtrackQ reg@((b, t, c, r, p), stack) code =
-  if b
-    then
-      let ((b'', t'', c'', r'', p''), stack'') =
-            until
-              ( \((b', t', c', r', p'), stack') ->
-                  (stackItemAtLocation (pToInt c') stack' == CodeAddress Nil)
-                    && (stackItemAtLocation (pToInt r') stack' /= CodeAddress Nil)
-              )
-              backtrackWhile
-              ((b, t, c, r, p), stack)
-       in case stackItemAtLocation (pToInt c'') stack'' of
-            CodeAddress Nil -> ((b'', t'', c'', r'', cLast code), stack'')
-            _ ->
-              let p''' = fromJust $ stackItemToInt $ stackItemAtLocation (pToInt c'') stack''
-                  stack''' =
-                    stackInsertAtLocation 
-                      (pToInt c'')
-                      (CodeAddress $ cNext code c'')
-                      stack'' 
-               in ((False, t'', c'', r'', p'''), stack''')
-    else ((b, t, c, r, addPi p 1), stack)
-  where
-    backtrackWhile :: I -> I
-    backtrackWhile ((b2, t2, c2, r2, p2), stack) =
-      backtrackWhile
-        ((b2, addPi c2 3, fromJust . stackItemToInt $ stackItemAtLocation (pToInt r2) stack, p2, addPi c2 1), stack)
+backtrackQ (regs@(b, _, _, _, _), stack) code =
+  if b then backtrack (regs, stack) code else noBacktrack (regs, stack)
+
+-- Backtrack flag is set to True
+backtrack :: I -> Zielcode -> I
+backtrack i@(_, stack) code =
+  let (regs'@(_, _, c', _, _), stack') = physicalPoppingIfCpNilAndBackjumpNot i
+   in if unsafeIsStackNilForRegister c' stack'
+        then backtrackCpNil (regs', stack') code
+        else backtrackCpNotNil (regs', stack') code
+
+backtrackCpNil :: I -> Zielcode -> I
+backtrackCpNil ((b, t, c, r, _), stack) code = ((b, t, c, r, cLast code), stack)
+
+backtrackCpNotNil :: I -> Zielcode -> I
+backtrackCpNotNil ((_, t, c, r, _), stack) code =
+  ( (False, t, c, r, fromJust . stackItemToInt $ stackItemAtLocation (pToInt c) stack),
+    stackInsertAtLocation (pToInt c) (CodeAddress $ cNext code c) stack
+  )
+
+noBacktrack :: I -> I
+noBacktrack ((b, t, c, r, p), stack) = ((b, t, c, r, addPi p 1), stack)
+
+physicalPoppingIfCpNilAndBackjumpNot :: I -> I
+physicalPoppingIfCpNilAndBackjumpNot ((b, _, c, r, p), stack)
+  | unsafeIsStackNilForRegister c stack && not (unsafeIsStackNilForRegister r stack) =
+    ( ( b,
+        addPi c 3,
+        fromJust . stackItemToInt $ stackItemAtLocation (pToInt r) stack,
+        addPi c 1,
+        p
+      ),
+      stack
+    )
+  | otherwise = undefined
+
+unsafeIsStackNilForRegister :: Pointer -> Stack StackElement -> Bool
+unsafeIsStackNilForRegister (Pointer regAddr) stack =
+  CodeAddress Nil == stackItemAtLocation regAddr stack
+unsafeIsStackNilForRegister Nil _ = error "Empty register (Nil) but expected an address."
 
 -- TODO: Discuss how else to solve this: Since prompt ist the last instruction, perhaps --       impurely through main?
 prompt :: I -> Zielcode -> I -- greedy prompt without IO, temporary solution
@@ -215,9 +218,9 @@ transformN :: [Command] -> Int -> Stack String
 transformN code amount = Stack (map (take amount . show) code)
 
 cFirst :: Zielcode -> Pointer
-cFirst (Stack code) = Pointer $ stackLocationFirstItemOfKind "unify" (transformN code 5)  -- doesnt really use command datatype, rather its show repr.
+cFirst (Stack code) = Pointer $ stackLocationFirstItemOfKind "unify" (transformN code 5) -- doesnt really use command datatype, rather its show repr.
 
---currently tells you distance to next "unify" given a location, hence no absolute value. TODO: FIX ME!!!, error lies in the use of drop. 
+--currently tells you distance to next "unify" given a location, hence no absolute value. TODO: FIX ME!!!, error lies in the use of drop.
 cNext :: Zielcode -> Pointer -> Pointer
 cNext (Stack code) Nil = Nil
 cNext (Stack code) (Pointer address) =
@@ -268,7 +271,6 @@ runner reg (Stack []) code = reg
 
 code :: Zielcode
 code = codeGen (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
-
 
 initial :: I
 initial = ((False, Pointer (-1), Nil, Nil, cGoal code), initStack)
