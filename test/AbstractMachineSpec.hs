@@ -1,4 +1,4 @@
-module AbstractMachineBaseSpec where
+module AbstractMachineSpec where
 
 import AbstractMachineBase
 import Models
