@@ -18,10 +18,9 @@ instance Monoid (Stack a) where
 instance Functor Stack where
   fmap f (Stack content) = Stack (map f content)
 
-
 instance (Show a) => Show (Stack a) where
   show (Stack stackelems) = unlines $ zipWith (\x y -> "s" ++ show x ++ ": " ++ show y) [0 ..] stackelems
-  
+
 stackNewEmpty :: Stack a
 stackNewEmpty = Stack []
 
@@ -33,20 +32,21 @@ stackPop (Stack content) = Stack (init content)
 
 stackPush :: a -> Stack a -> Stack a
 stackPush new (Stack content) = Stack (reverse $ new : reverse content)
+
 -- suboptimal, quick and dirty solution for Inifite Type Problem when new is appended to the end of content, NEEDS REWORK
 
 stackSizeOf :: Stack a -> Int
 stackSizeOf (Stack content) = length content
 
 stackItemAtLocation :: Int -> Stack a -> a
-stackItemAtLocation 0 (Stack content)    = head content
-stackItemAtLocation pos (Stack content)  = content !! pos
+stackItemAtLocation 0 (Stack content) = head content
+stackItemAtLocation pos (Stack content) = content !! pos
 
-stackInsertAtLocation :: Int -> a -> Stack a ->  Stack a
-stackInsertAtLocation pos val (Stack []) = Stack [val]
-stackInsertAtLocation pos val (Stack content@(x:xs)) 
-  | -1 <= pos && pos <= 0 = Stack[val] <> Stack content
-  | pos <= length content -1 = Stack[x] <> stackInsertAtLocation (pos-1) val (Stack xs)
+stackWriteToLocation :: Int -> a -> Stack a -> Stack a
+stackWriteToLocation pos val (Stack []) = Stack [val]
+stackWriteToLocation pos val (Stack content@(x : xs))
+  | -1 <= pos && pos <= 0 = Stack [val] <> Stack content
+  | pos <= length content -1 = Stack [x] <> stackWriteToLocation (pos -1) val (Stack xs)
   | otherwise = error "position exceeds listsize."
 
 stackLocationFirstItemOfKind :: (Eq a) => a -> Stack a -> Int
