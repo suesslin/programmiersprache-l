@@ -1,6 +1,6 @@
-module AbstractMachineSpec where
+module AbstractMachineBaseSpec where
 
-import AbstractMachine
+import AbstractMachineBase
 import Models
 import Parser
 import Test.HUnit

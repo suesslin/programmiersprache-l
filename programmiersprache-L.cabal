@@ -25,7 +25,7 @@ source-repository head
 
 library
   exposed-modules:
-      AbstractMachine
+      AbstractMachineBase
       Models
       Parser
       Stack
@@ -58,7 +58,7 @@ test-suite programmiersprache-L-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      AbstractMachineSpec
+      AbstractMachineBaseSpec
       ParserSpec
       StackSpec
       Paths_programmiersprache_L

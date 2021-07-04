@@ -1,4 +1,4 @@
-module AbstractMachine where
+module AbstractMachineBase where
 
 import Control.Exception
 import Data.Maybe
