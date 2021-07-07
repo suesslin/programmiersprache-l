@@ -35,6 +35,7 @@ instance Show Atom where
 data StackElement
   = CodeAtom Atom
   | CodeAddress Pointer
+  | StackAddress Pointer
   | CodeArg Argument
   deriving (Eq)
 
@@ -42,6 +43,7 @@ instance Show StackElement where
   show (CodeAtom atom) = show atom
   show (CodeAddress Nil) = "nil"
   show (CodeAddress adr) = "c" ++ show adr
+  show (StackAddress adr) = "s" ++ show adr
   show (CodeArg arg) = case arg of
     ATNot -> "not"
     ATNeg -> "neg"
@@ -341,15 +343,17 @@ callFromPrompt reg (Stack (firstfkt:rest)) = do
    let newreg = callZielcode firstfkt reg (Stack rest)
    prompt newreg code  -}
 
+   
+
 runner :: I -> Zielcode -> Zielcode -> I
 runner reg (Stack (firstfkt : rest)) code = runner (callZielcode firstfkt reg code) (Stack rest) code
 runner reg (Stack []) code = reg
 
-code :: Zielcode
-code = codeGen (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
+-- code :: Zielcode
+-- code = codeGen (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
 
-initial :: I
-initial = ((False, Pointer (-1), Nil, Nil, cGoal code), initStack)
+-- initial :: I
+-- initial = ((False, Pointer (-1), Nil, Nil, cGoal code), initStack)
 
-initStack :: Stack StackElement
-initStack = stackNewEmpty
+-- initStack :: Stack StackElement
+-- initStack = stackNewEmpty
