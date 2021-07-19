@@ -26,7 +26,7 @@ type Addressreg = (B, T, C, R, P)
 
 newtype Atom = A String deriving (Eq)
 
-data Argument = ATNot | ATNeg | ATAtom Atom deriving (Eq)
+data Argument = ATNot | ATNeg | ATAtom Atom deriving (Eq, Show)
 
 instance Show Atom where
   show (A str) = str
@@ -64,30 +64,30 @@ type I = (Addressreg, Stack StackElement) -- why is this named I? Stack [String]
 
 -- Commands, necessary for having a List of named partially applied functions
 data Command
-  = Unify String (Atom -> I -> I) Atom
-  | Push String (Atom -> I -> Zielcode -> I) Atom
-  | Call String (I -> Zielcode -> I)
-  | Prompt String (I -> Zielcode -> I)
-  | Backtrack String (I -> Zielcode -> I)
-  | Return String (I -> I)
-
--- Prompt' String (I -> Zielcode -> IO())
+  = Unify (Atom -> I -> I) Atom
+  | Push (Atom -> I -> Zielcode -> I) Atom
+  | Push' (Argument -> I -> Zielcode -> I) Argument
+  | Call (I -> Zielcode -> I)
+  | Prompt (I -> Zielcode -> I)
+  | Backtrack (I -> Zielcode -> I)
+  | Return' (Argument -> I -> I) Argument
+  | Return (I -> I)
 
 instance Show Command where
-  show (Unify name fkt atom) = name ++ " " ++ show atom
-  show (Push name fkt atom) = name ++ " " ++ show atom
-  show (Call name inst) = name
-  show (Prompt name inst) = name
-  show (Backtrack name inst) = name
-  show (Return name inst) = name
-
---show (Instruktion name inst) = name
+  show (Unify fkt atom) = "unify" ++ " " ++ show atom
+  show (Push fkt atom) = "push" ++ " " ++ show atom
+  show (Push' fkt arg) = "push" ++ " " ++ show arg
+  show (Call _) = "call"
+  show (Prompt _) = "prompt"
+  show (Backtrack _) = "backtrack?"
+  show (Return _) = "return"
+  show (Return' _ arg) = "return'" ++ show arg
 
 instance Eq Command where
-  (==) (Unify name1 fkt1 atom1) (Unify name2 fkt2 atom2) = (name1 == name2) && (atom1 == atom2)
-  (==) (Push name1 fkt1 atom1) (Push name2 fkt2 atom2) = (name1 == name2) && (atom1 == atom2)
-  (==) (Call name1 inst1) (Call name2 inst2) = name1 == name2
-  --(==) (Instruktion name1 inst1) (Instruktion name2 inst2) = name1 == name2
+  (==) (Unify _ atom1) (Unify _ atom2) = atom1 == atom2
+  (==) (Push _ atom1) (Push _ atom2) = atom1 == atom2
+  (==) (Push' _ arg1) (Push' _ arg2) = arg1 == arg2
+  (==) (Call _) (Call _) = True
   (==) _ _ = False
 
 -- Zielcode is the returntype of L Code Translation
@@ -106,24 +106,36 @@ codeGen parsetree = üb parsetree (Stack [])
   | null pklauseln = üb (TZ (Ziel lits)) $ üb (TPk pklausel) akk
   | otherwise = üb (TP (Programm pklauseln (Ziel lits))) $ üb (TPk pklausel) akk
 -- Üb(Atom.)
-üb (TPk (Pk1 (NVLTerm atom _))) akk = übHead (A atom) akk <> Stack [Return "return" returnL]
+üb (TPk (Pk1 (NVLTerm atom _))) akk = übHead (A atom) akk <> Stack [Return returnL]
 -- Üb(Atom :- Seq)
 üb (TPk (Pk2 (NVLTerm atom _) (Ziel seq))) akk =
   let akk' = übHead (A atom) akk
-   in übBody seq akk' <> Stack [Return "return" returnL]
+   in übBody seq akk' <> Stack [Return returnL]
 -- Üb(:- Seq) -- TODO !!! error in translations of code with no klauseln, only ziel i.e. ":-p,r.".
-üb (TZ (Ziel literals)) akk = übBody literals akk <> Stack [Prompt "prompt" prompt]
+üb (TZ (Ziel literals)) akk = übBody literals akk <> Stack [Prompt prompt]
 üb _ akk = error $ "Failure in :- Seq translation." ++ show akk
 
--- üb ([not Atom | Seqeunz]) [Negation durch Scheitern]
-
 übHead :: Atom -> Zielcode -> Zielcode
-übHead atom akk = akk <> Stack [Unify "unify" unify atom, Backtrack "backtrack?" backtrackQ]
+übHead atom akk = akk <> Stack [Unify unify atom, Backtrack backtrackQ]
 
--- TODO: Add Rule for not Atom
+-- TODO: Instead of using let, create separate functions
 übBody :: [Literal] -> Zielcode -> Zielcode
-übBody ((Literal polarity (LTNVar (NVLTerm atom _))) : seq) akk =
-  let akk' = akk <> Stack [Push "push" push (A atom), Call "call" call, Backtrack "backtrack?" backtrackQ]
+-- Üb_Body([not Atom | Sequenz]): Negation durch Scheitern
+übBody ((Literal False (LTNVar (NVLTerm atom _))) : seq) akk =
+  let akk' =
+        akk
+          <> Stack
+            [ Push' push' ATNot,
+              Push' push' (ATAtom $ A atom),
+              Call call,
+              Backtrack backtrack',
+              Return' returnL' ATNeg,
+              Backtrack backtrack'
+            ]
+   in übBody seq akk'
+-- Üb_Body([Atom | Sequenz])
+übBody ((Literal _ (LTNVar (NVLTerm atom _))) : seq) akk =
+  let akk' = akk <> Stack [Push push (A atom), Call call, Backtrack backtrackQ]
    in übBody seq akk'
 übBody [] akk = akk
 übBody _ _ = error "Failure in übBody."
@@ -325,12 +337,14 @@ cGoal (Stack code) =
 
 -- evaluator(s), there might be a better solution for our command datatype
 callZielcode :: Command -> I -> Zielcode -> I
-callZielcode (Push name fkt atom) reg code = push atom reg code
-callZielcode (Unify name fkt atom) reg code = unify atom reg
-callZielcode (Call name inst) reg code = call reg code
-callZielcode (Backtrack name inst) reg code = backtrackQ reg code
-callZielcode (Return name inst) reg code = returnL reg
-callZielcode (Prompt name inst) reg code = prompt reg code
+callZielcode (Push _ atom) reg code = push atom reg code
+callZielcode (Push' _ arg) reg code = push' arg reg code
+callZielcode (Unify _ atom) reg _ = unify atom reg
+callZielcode (Call _) reg code = call reg code
+callZielcode (Backtrack _) reg code = backtrackQ reg code
+callZielcode (Return _) reg _ = returnL reg
+callZielcode (Return' _ arg) reg _ = returnL' arg reg
+callZielcode (Prompt _) reg code = prompt reg code
 
 {- callPrompt':: Command -> I -> Zielcode -> IO()
 callPrompt' (Prompt' name inst) reg code = prompt' reg code
@@ -342,8 +356,6 @@ callFromPrompt reg (Stack (firstfkt:rest)) = do
    putStrLn "reeval"
    let newreg = callZielcode firstfkt reg (Stack rest)
    prompt newreg code  -}
-
-   
 
 runner :: I -> Zielcode -> Zielcode -> I
 runner reg (Stack (firstfkt : rest)) code = runner (callZielcode firstfkt reg code) (Stack rest) code
