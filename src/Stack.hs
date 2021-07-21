@@ -38,21 +38,28 @@ stackPush new (Stack content) = Stack (reverse $ new : reverse content)
 stackSizeOf :: Stack a -> Int
 stackSizeOf (Stack content) = length content
 
-stackItemAtLocation :: Int -> Stack a -> a
+stackItemAtLocation :: (Integral a, Ord a) => a -> Stack b -> b
 stackItemAtLocation 0 (Stack content) = head content
-stackItemAtLocation pos (Stack content) = content !! pos
+stackItemAtLocation pos (Stack content) = content !! fromIntegral (toInteger pos) -- this is a bit suboptimal
 
-stackWriteToLocation :: Int -> a -> Stack a -> Stack a
+stackWriteToLocation :: (Num a, Ord a) => a -> b -> Stack b -> Stack b
 stackWriteToLocation pos val (Stack []) = Stack [val]
 stackWriteToLocation pos val (Stack content@(x : xs))
   | -1 <= pos && pos <= 0 = Stack [val] <> Stack content
-  | pos <= length content -1 = Stack [x] <> stackWriteToLocation (pos -1) val (Stack xs)
+  | pos <= fromIntegral (length content -1) = Stack [x] <> stackWriteToLocation (pos -1) val (Stack xs)
   | otherwise = error "position exceeds listsize."
 
-stackLocationFirstItemOfKind :: (Eq a) => a -> Stack a -> Int
+stackWriteToLocationMultiple :: (Num a, Ord a) => [(a, b)] -> Stack b -> Stack b
+stackWriteToLocationMultiple [(loc,val)] stack = stackWriteToLocation loc val stack 
+stackWriteToLocationMultiple ((loc,val):xs) stack = stackWriteToLocationMultiple xs (stackWriteToLocation loc val stack)  
+stackWriteToLocationMultiple _ _ = error "something went wrong whilst trying to create new stack with multiple overwrites."
+
+-- needs actual error handling 
+-- needs actual error handling 
+stackLocationFirstItemOfKind :: (Eq a, Num b, Enum b) => a -> Stack a -> b
 stackLocationFirstItemOfKind item (Stack content) = fst $ head $ filter ((== item) . snd) $ zip [0 ..] content
 
-stackLocationLastItemOfKind :: (Eq a) => a -> Stack a -> Int
+stackLocationLastItemOfKind :: (Eq a, Num b, Enum b) => a -> Stack a -> b
 stackLocationLastItemOfKind item (Stack content) = fst $ last $ filter ((== item) . snd) $ zip [0 ..] content
 
 stackTake :: Int -> Stack a -> Stack a

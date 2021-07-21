@@ -48,6 +48,13 @@ testStackWriteToLocation =
       (Stack [1, 2, 3, 6, 4])
       (stackWriteToLocation 3 6 (Stack [1, 2, 3, 4]))
 
+testStackWriteToLocationMultiple = 
+  TestCase $ 
+    assertEqual 
+      "stackWriteToLocationMultiple should return a new stack with multiple changes on various location, depending on the input arguments"
+      (Stack [1, 42, 1337, 2, 3, 4])
+      (stackWriteToLocationMultiple [(1,42), (2, 1337)] (Stack [1,2,3,4]))
+
 testStackLocationFirstItemOfKind =
   TestCase $
     assertEqual
