@@ -167,8 +167,17 @@ testPushAtomSubsequent =
   TestCase $
     assertEqual
       "push q should update the stack accordingly when operating with existing stack."
-      ((False, Pointer 7, Pointer 4, Pointer 5, Pointer 3), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 0), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")])
-      (push (A "q") ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 2), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]) code)
+      ( (False, Pointer 7, Pointer 4, Pointer 5, Pointer 3),
+        Stack
+          [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 0), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")]
+      )
+      ( push
+          (A "q")
+          ( (False, Pointer 3, Pointer 0, Pointer 1, Pointer 2),
+            Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]
+          )
+          code
+      )
 
 testUnifyUnifiable =
   TestCase $
@@ -188,15 +197,33 @@ testCallOnFirst =
   TestCase $
     assertEqual
       "call should set I accordingly when called after first push command"
-      ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 2), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
-      (call ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress (Pointer 0), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]) code)
+      ( (False, Pointer 3, Pointer 0, Pointer 1, Pointer 2),
+        Stack
+          [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]
+      )
+      ( call
+          ( (False, Pointer 3, Pointer 0, Pointer 1, Pointer 16),
+            Stack
+              [CodeAddress (Pointer 0), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]
+          )
+          code
+      )
 
 testCallOnSubsequent =
   TestCase $
     assertEqual
       "call should set registers accordingly when called after subsequent push commands."
-      ((False, Pointer 7, Pointer 4, Pointer 5, Pointer 0), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 6), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")])
-      (call ((False, Pointer 7, Pointer 4, Pointer 5, Pointer 3), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 0), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")]) code)
+      ( (False, Pointer 7, Pointer 4, Pointer 5, Pointer 0),
+        Stack
+          [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 6), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")]
+      )
+      ( call
+          ( (False, Pointer 7, Pointer 4, Pointer 5, Pointer 3),
+            Stack
+              [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 0), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")]
+          )
+          code
+      )
 
 testCallCNilCase =
   TestCase $

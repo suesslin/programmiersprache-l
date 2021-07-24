@@ -50,17 +50,26 @@ stackWriteToLocation pos val (Stack content@(x : xs))
   | otherwise = error "position exceeds listsize."
 
 stackWriteToLocationMultiple :: (Num a, Ord a) => [(a, b)] -> Stack b -> Stack b
-stackWriteToLocationMultiple [(loc,val)] stack = stackWriteToLocation loc val stack 
-stackWriteToLocationMultiple ((loc,val):xs) stack = stackWriteToLocationMultiple xs (stackWriteToLocation loc val stack)  
+stackWriteToLocationMultiple [(loc, val)] stack = stackWriteToLocation loc val stack
+stackWriteToLocationMultiple ((loc, val) : xs) stack = stackWriteToLocationMultiple xs (stackWriteToLocation loc val stack)
 stackWriteToLocationMultiple _ _ = error "something went wrong whilst trying to create new stack with multiple overwrites."
 
--- needs actual error handling 
--- needs actual error handling 
+-- needs actual error handling
 stackLocationFirstItemOfKind :: (Eq a, Num b, Enum b) => a -> Stack a -> b
 stackLocationFirstItemOfKind item (Stack content) = fst $ head $ filter ((== item) . snd) $ zip [0 ..] content
 
 stackLocationLastItemOfKind :: (Eq a, Num b, Enum b) => a -> Stack a -> b
 stackLocationLastItemOfKind item (Stack content) = fst $ last $ filter ((== item) . snd) $ zip [0 ..] content
+
+-- Safe version
+stackLocationFirstItemOfKind' :: (Eq a) => a -> Stack a -> Maybe Int
+stackLocationFirstItemOfKind' item (Stack content) =
+  fst <$> find ((==) item . snd) (zip [0 ..] content)
+
+-- Safe Version
+stackLocationLastItemOfKind' :: (Eq a) => a -> Stack a -> Maybe Int
+stackLocationLastItemOfKind' item (Stack content) =
+  fst <$> find ((==) item . snd) (reverse $ zip [0 ..] content)
 
 stackTake :: Int -> Stack a -> Stack a
 stackTake n (Stack a) = Stack $ take n a

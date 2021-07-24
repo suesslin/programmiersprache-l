@@ -88,7 +88,7 @@ instance Eq Command where
   (==) (Push _ atom1) (Push _ atom2) = atom1 == atom2
   (==) (Push' _ arg1) (Push' _ arg2) = arg1 == arg2
   (==) (Call _) (Call _) = True
-  (==) (Prompt _ ) (Prompt _ ) = True
+  (==) (Prompt _) (Prompt _) = True
   (==) (Backtrack _) (Backtrack _) = True
   (==) (Return _) (Return _) = True
   (==) _ _ = False
@@ -317,13 +317,15 @@ cFirst (Stack code) = Pointer $ stackLocationFirstItemOfKind "unify" (transformN
 cNext :: Zielcode -> Pointer -> Pointer
 cNext (Stack code) Nil = Nil
 cNext (Stack code) p@(Pointer address) =
-  Pointer (stackLocationFirstItemOfKind "unify" (transformN (drop (address + 1) code) 5)) + (p +<- 1)
+  case stackLocationFirstItemOfKind' "unify" (transformN (drop (address + 1) code) 5) of
+    (Just relativeItemLocation) -> (p +<- 1) + Pointer relativeItemLocation
+    Nothing -> Nil
 
-cNextRelative :: Zielcode -> Pointer -> Pointer
-cNextRelative (Stack code) Nil = Nil
-cNextRelative (Stack code) (Pointer address) =
-  Pointer (stackLocationFirstItemOfKind "unify" (transformN (drop (address + 1) code) 5)) + 1
--- +1 needed because drop shrinks list by one
+-- cNextRelative :: Zielcode -> Pointer -> Pointer
+-- cNextRelative (Stack code) Nil = Nil
+-- cNextRelative (Stack code) (Pointer address) =
+--   Pointer (stackLocationFirstItemOfKind "unify" (transformN (drop (address + 1) code) 5)) + 1
+-- -- +1 needed because drop shrinks list by one
 
 cLast :: Zielcode -> Pointer
 cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind "prompt" (transformN code 6)
