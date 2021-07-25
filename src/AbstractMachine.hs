@@ -52,6 +52,7 @@ instance Show StackElement where
 --helper
 stackItemToInt :: StackElement -> Maybe Pointer
 stackItemToInt (CodeAddress x) = Just x
+stackItemToInt (StackAddress x) = Just x
 stackItemToInt _ = Nothing
 
 -- Unsafe operation that gets the pointer from Stack stack at location i.
@@ -104,8 +105,10 @@ codeGen :: Tree -> Zielcode
 codeGen parsetree = üb parsetree (Stack [])
 
 üb :: Tree -> Zielcode -> Zielcode
+-- If there are no Programmklauseln
+üb (TP (Programm [] (Ziel lits))) akk = üb (TZ (Ziel lits)) akk
+-- If there are Programmklauseln
 üb (TP (Programm klauseln@(pklausel : pklauseln) (Ziel lits))) akk
-  | null klauseln = üb (TZ (Ziel lits)) akk
   | null pklauseln = üb (TZ (Ziel lits)) $ üb (TPk pklausel) akk
   | otherwise = üb (TP (Programm pklauseln (Ziel lits))) $ üb (TPk pklausel) akk
 -- Üb(Atom.)
@@ -114,7 +117,6 @@ codeGen parsetree = üb parsetree (Stack [])
 üb (TPk (Pk2 (NVLTerm atom _) (Ziel seq))) akk =
   let akk' = übHead (A atom) akk
    in übBody seq akk' <> Stack [Return returnL]
--- Üb(:- Seq) -- TODO !!! error in translations of code with no klauseln, only ziel i.e. ":-p,r.".
 üb (TZ (Ziel literals)) akk = übBody literals akk <> Stack [Prompt prompt]
 üb _ akk = error $ "Failure in :- Seq translation." ++ show akk
 
@@ -152,7 +154,7 @@ push atom ((b, t, c, _, p), stack) code =
   ( (b, addPi t 4, addPi t 1, addPi t 2, addPi p 1),
     stackTake (pToInt (addPi t 1)) stack
       <> Stack
-        [CodeAddress $ cFirst code, CodeAddress c, CodeAddress $ addPi p 3, CodeAtom atom]
+        [CodeAddress $ cFirst code, StackAddress c, CodeAddress $ addPi p 3, CodeAtom atom]
       <> stackDrop (pToInt (addPi t 4)) stack
   )
 
@@ -180,6 +182,7 @@ unify atom ((_, t, c, r, p), stack) =
   let b' = stackItemAtLocation (pToInt (addPi c 3)) stack /= CodeAtom atom
    in ((b', t, c, r, addPi p 1), stack)
 
+-- TODO: Auseinanderziehen
 call :: I -> Zielcode -> I
 call ((b, t, c, r, p), stack) code =
   if stackItemAtLocation (pToInt c) stack == CodeAddress Nil -- TODO,actually just undefinied
@@ -187,11 +190,18 @@ call ((b, t, c, r, p), stack) code =
     else
       let p' = unsafePointerFromStackAtLocation (pToInt c) stack
           stack' =
-            stackWriteToLocation
+            stackReplaceAtLocation
               (pToInt c)
-              (CodeAddress (cNext code (fromJust . stackItemToInt $ stackItemAtLocation (pToInt c) stack)))
+              ( CodeAddress $
+                  cNext code (fromJust . stackItemToInt $ stackItemAtLocation c stack)
+              )
               stack
        in ((b, t, c, r, p'), stack')
+
+-- stackWriteToLocation
+--               (pToInt c)
+--               (CodeAddress (cNext code (fromJust . stackItemToInt $ stackItemAtLocation (pToInt c) stack)))
+--               stack
 
 -- possible problem; nur logisches entkellern, untested
 returnL :: I -> I
@@ -199,10 +209,16 @@ returnL ((b, t, c, r, p), stack) =
   let p' = unsafePointerFromStackAtLocation (pToInt (addPi r 1)) stack
    in if stackItemAtLocation (pToInt r) stack /= CodeAddress Nil
         then
-          ( (b, t, c, addPi (fromJust (stackItemToInt $ stackItemAtLocation (pToInt r) stack)) 1, p'),
-            stack
-          )
+          let r' = (fromJust . stackItemToInt $ stackItemAtLocation r stack) +<- 1
+           in ((b, t, c, r', p'), stack)
         else ((b, t, c, r, p'), stack)
+
+-- ((b, t, c, r', p'), stack)
+
+--  in error $
+--       "Irgendwas " ++ show stack ++ "\nr:" ++ show r ++ "\n\nr':"
+--         ++ show (stackItemToInt $ stackItemAtLocation r stack)
+--         ++ "\n\n"
 
 -- Return für Negation durch Scheitern
 returnL' :: Argument -> I -> I
@@ -241,14 +257,14 @@ backtrackCpNil ((b, t, c, r, _), stack) code = ((b, t, c, r, cLast code), stack)
 backtrackCpNotNil :: I -> Zielcode -> I
 backtrackCpNotNil ((_, t, c, r, _), stack) code =
   ( (False, t, c, r, unsafePointerFromStackAtLocation (pToInt c) stack),
-    stackWriteToLocation (pToInt c) (CodeAddress $ cNext code c) stack
+    stackReplaceAtLocation (pToInt c) (CodeAddress $ cNext code c) stack
   )
 
 noBacktrack :: I -> I
 noBacktrack ((b, t, c, r, p), stack) = ((b, t, c, r, addPi p 1), stack)
 
 physicalPoppingIfCpNilAndBackjumpNot :: I -> I
-physicalPoppingIfCpNilAndBackjumpNot ((b, _, c, r, p), stack)
+physicalPoppingIfCpNilAndBackjumpNot ((b, t, c, r, p), stack)
   | unsafeIsStackNilForRegister c stack && not (unsafeIsStackNilForRegister r stack) =
     ( ( b,
         addPi c 3,
@@ -258,7 +274,7 @@ physicalPoppingIfCpNilAndBackjumpNot ((b, _, c, r, p), stack)
       ),
       stack
     )
-  | otherwise = undefined
+  | otherwise = ((b, t, c, r, p +<- 1), stack)
 
 unsafeIsStackNilForRegister :: Pointer -> Stack StackElement -> Bool
 unsafeIsStackNilForRegister (Pointer regAddr) stack =
@@ -330,11 +346,17 @@ cNext (Stack code) p@(Pointer address) =
 cLast :: Zielcode -> Pointer
 cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind "prompt" (transformN code 6)
 
+-- FIXME: Reconsider if this should really be 0 and not Nil (Pointer) in case of Nothing
+--        Our consideration about until now is that 0 should be okay.
 cGoal :: Zielcode -> Pointer
-cGoal (Stack code) =
-  addPi
-    (Pointer $ stackLocationLastItemOfKind "return" (transformN code 6))
-    1
+cGoal (Stack code) = case stackLocationLastItemOfKind' "return" (transformN code 6) of
+  (Just location) -> Pointer location +<- 1
+  Nothing -> 0
+
+-- cGoal (Stack code) =
+--   addPi
+--     (Pointer $ stackLocationLastItemOfKind "return" (transformN code 6))
+--     1
 
 -- the +1 is needed because start of goal is determined by checking the address of the last return statement
 

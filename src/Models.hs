@@ -4,31 +4,33 @@ data Token = Ende | Implikation | Punkt | And | KlammerAuf | KlammerZu | Not | V
 
 data Pointer = Pointer Int | Nil deriving (Show, Eq)
 
-instance Num Pointer where 
+instance Num Pointer where
   (Pointer x) + (Pointer y) = Pointer (x + y)
-  Nil + Nil = Nil 
-  (Pointer _) + Nil = Nil 
-  Nil + (Pointer y) = Nil 
+  Nil + Nil = Nil
+  (Pointer _) + Nil = Nil
+  Nil + (Pointer y) = Nil
   (Pointer x) - (Pointer y) = Pointer (x - y)
-  Nil - Nil = Nil 
-  (Pointer _) - Nil = Nil 
+  Nil - Nil = Nil
+  (Pointer _) - Nil = Nil
   Nil - (Pointer y) = Nil
-  fromInteger x = Pointer (fromInteger x) 
+  fromInteger x = Pointer (fromInteger x)
 
-instance Ord Pointer where 
+instance Ord Pointer where
   compare (Pointer x) (Pointer y) = compare x y
-  compare (Pointer x) Nil = GT 
+  compare (Pointer x) Nil = GT
   compare Nil (Pointer y) = LT
-  compare Nil Nil = EQ 
+  compare Nil Nil = EQ
 
 -- TODO
 
-instance Enum Pointer where 
+instance Enum Pointer
 
-instance Real Pointer where 
+instance Real Pointer
 
-instance Integral Pointer where 
-  
+instance Integral Pointer where
+  toInteger (Pointer x) = toInteger x
+  toInteger Nil = -1
+
 {---------------------------------------------------------------------
    Functions for Pointers
  ---------------------------------------------------------------------}

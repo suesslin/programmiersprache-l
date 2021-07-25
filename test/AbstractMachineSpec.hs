@@ -160,7 +160,7 @@ testPushAtomEmptyStack =
   TestCase $
     assertEqual
       "push p should push Atom A, choice Point C, and return Address p+3 on stack, then update registers accordingly."
-      ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress (Pointer 0), CodeAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
+      ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress (Pointer 0), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
       (push (A "p") initial code)
 
 testPushAtomSubsequent =
@@ -193,11 +193,12 @@ testUnifyUnunifiable =
       ((True, Pointer 7, Pointer 4, Pointer 5, Pointer 1), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 6), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")])
       (unify (A "p") ((False, Pointer 7, Pointer 4, Pointer 5, Pointer 0), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 6), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")]))
 
+-- First call instruction, p. 129
 testCallOnFirst =
   TestCase $
     assertEqual
       "call should set I accordingly when called after first push command"
-      ( (False, Pointer 3, Pointer 0, Pointer 1, Pointer 2),
+      ( (False, Pointer 3, Pointer 0, Pointer 1, Pointer 0),
         Stack
           [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]
       )
@@ -232,6 +233,7 @@ testCallCNilCase =
       ((True, Pointer 3, Pointer 0, Pointer 1, Pointer 17), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
       (call ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]) code)
 
+-- p. 131
 testReturnLNotNilCase =
   TestCase $
     assertEqual
@@ -271,11 +273,12 @@ testReturnLNotNilCase =
           )
       )
 
+-- Input p.131: Return in the middle (2nd of 3 on the page)
 testReturnLElseCase =
   TestCase $
     assertEqual
       "returnL should set registers correctly when called on register with r == nil"
-      ( (False, Pointer 11, Pointer 8, Pointer 5, Pointer 11),
+      ( (False, Pointer 11, Pointer 8, Pointer 1, Pointer 18),
         Stack
           [ CodeAddress (Pointer 6),
             StackAddress Nil,
@@ -292,7 +295,7 @@ testReturnLElseCase =
           ]
       )
       ( returnL
-          ( (False, Pointer 11, Pointer 8, Pointer 9, Pointer 14),
+          ( (False, Pointer 11, Pointer 8, Pointer 1, Pointer 5),
             Stack
               [ CodeAddress (Pointer 6),
                 StackAddress Nil,
@@ -303,7 +306,7 @@ testReturnLElseCase =
                 CodeAddress (Pointer 5),
                 CodeAtom (A "q"),
                 CodeAddress Nil,
-                StackAddress Nil,
+                StackAddress (Pointer 4),
                 CodeAddress (Pointer 11),
                 CodeAtom (A "r")
               ]
