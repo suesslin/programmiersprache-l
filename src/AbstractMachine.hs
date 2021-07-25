@@ -49,7 +49,7 @@ instance Show StackElement where
     ATNeg -> "neg"
     (ATAtom atom) -> show atom
 
---helper
+-- Helper
 stackItemToInt :: StackElement -> Maybe Pointer
 stackItemToInt (CodeAddress x) = Just x
 stackItemToInt (StackAddress x) = Just x
@@ -198,11 +198,6 @@ call ((b, t, c, r, p), stack) code =
               stack
        in ((b, t, c, r, p'), stack')
 
--- stackWriteToLocation
---               (pToInt c)
---               (CodeAddress (cNext code (fromJust . stackItemToInt $ stackItemAtLocation (pToInt c) stack)))
---               stack
-
 -- possible problem; nur logisches entkellern, untested
 returnL :: I -> I
 returnL ((b, t, c, r, p), stack) =
@@ -337,12 +332,6 @@ cNext (Stack code) p@(Pointer address) =
     (Just relativeItemLocation) -> (p +<- 1) + Pointer relativeItemLocation
     Nothing -> Nil
 
--- cNextRelative :: Zielcode -> Pointer -> Pointer
--- cNextRelative (Stack code) Nil = Nil
--- cNextRelative (Stack code) (Pointer address) =
---   Pointer (stackLocationFirstItemOfKind "unify" (transformN (drop (address + 1) code) 5)) + 1
--- -- +1 needed because drop shrinks list by one
-
 cLast :: Zielcode -> Pointer
 cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind "prompt" (transformN code 6)
 
@@ -352,11 +341,6 @@ cGoal :: Zielcode -> Pointer
 cGoal (Stack code) = case stackLocationLastItemOfKind' "return" (transformN code 6) of
   (Just location) -> Pointer location +<- 1
   Nothing -> 0
-
--- cGoal (Stack code) =
---   addPi
---     (Pointer $ stackLocationLastItemOfKind "return" (transformN code 6))
---     1
 
 -- the +1 is needed because start of goal is determined by checking the address of the last return statement
 
