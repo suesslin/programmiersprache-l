@@ -5,7 +5,7 @@ import Tokenizer
 
 type IsTrue = Bool
 
-data Programm = Programm [Programmklausel] Ziel deriving (Show, Eq)
+data Programm = Programm [Programmklausel] Ziel | Programm' [(VarSeq, Programmklausel)] (VarSeq, Ziel) deriving (Show, Eq)
 
 data Programmklausel = Pk1 NVLTerm | Pk2 NVLTerm Ziel deriving (Show, Eq)
 
@@ -29,6 +29,7 @@ data Tree
   | TLLT [LTerm]
   deriving (Show, Eq)
 
+type VarSeq = [String]
 type Rule = [Token] -> (Tree, [Token])
 
 -- TODO: Better error handling
@@ -158,3 +159,52 @@ parse toks =
               ++ "."
               ++ "They could be parsed thus far:\n"
               ++ show tree
+
+--Sucht Variablen des fertigen Baumes und hängt die relevanten an die jeweiligen Klauseln/das Ziel
+newTree :: Tree -> Tree
+newTree (TP (Programm x y)) = TP (Programm' (newPk x) (newZiel y))
+newTree _ = error "Unvollständiger Programmbaum"
+
+--Geht einzelne Programmklauseln durch und sucht nach Variablen
+newPk :: [Programmklausel] -> [(VarSeq,Programmklausel)]
+newPk = map (\x -> newPk' x [] [])
+
+--Schaut direkt auf die NichtVariablenLTerme und den LTermen in den Programmklauseln und sammelt Variablen
+newPk' :: Programmklausel -> [LTerm] ->  VarSeq -> (VarSeq,Programmklausel)
+--Für Programmklauseln ohne Ziele
+newPk' (Pk1 (NVLTerm x [])) akk varSeq = (removeDuplicates varSeq, Pk1 (NVLTerm x akk))
+newPk' (Pk1 (NVLTerm x (lTerm:rest))) akk varSeq = case lTerm of
+  LTVar s -> newPk' (Pk1 (NVLTerm x rest)) (akk ++ [lTerm]) (varSeq ++ [s])
+  LTNVar nt -> newPk' (Pk1 (NVLTerm x rest)) (akk ++ [lTerm]) (newNVLT nt varSeq)
+--Für Programmklauseln mit Zielen
+newPk' (Pk2 (NVLTerm x []) ziel) akk varSeq = (varSeq ++ newZiel' ziel [], Pk2 (NVLTerm x akk) ziel)
+newPk' (Pk2 (NVLTerm x (lTerm:rest)) ziel) akk varSeq = case lTerm of
+  LTVar s -> newPk' (Pk2 (NVLTerm x rest) ziel) (akk++[lTerm]) (varSeq ++ [s])
+  LTNVar nt -> newPk' (Pk2 (NVLTerm x rest) ziel) (akk ++ [lTerm]) (newNVLT nt varSeq)
+
+--Sammelt Variablen in NichtVariablenLTermen und schaut auch auf LTerme
+newNVLT :: NVLTerm -> VarSeq -> VarSeq
+newNVLT (NVLTerm _ []) varSeq = varSeq
+newNVLT (NVLTerm x (lTerm:rest)) varSeq = case lTerm of
+  LTVar s -> newNVLT (NVLTerm x rest) (varSeq ++ [s])
+  LTNVar nt -> newNVLT (NVLTerm x rest) (varSeq ++ newNVLT nt [])
+
+--Geht Ziele durch und sucht nach Variablen
+newZiel :: Ziel -> (VarSeq, Ziel)
+newZiel ziel = (newZiel' ziel [], ziel)
+
+--Geht die LTerme in den Literalen der Ziele durch und sammelt Variablen
+newZiel' :: Ziel -> VarSeq ->  VarSeq
+newZiel' (Ziel []) varSeq = removeDuplicates varSeq
+newZiel' (Ziel ((Literal _ lTerm):rest)) varSeq = case lTerm of
+  LTVar s -> newZiel' (Ziel rest) (varSeq ++ [s])
+  LTNVar nt -> newZiel' (Ziel rest) (varSeq ++ newNVLT nt [])
+
+removeDuplicates :: [String] -> [String]
+removeDuplicates = removeDuplicates' []
+
+removeDuplicates' :: [String] -> [String] -> [String]
+removeDuplicates' akk [] = akk
+removeDuplicates' akk (x:xs)
+  | x `elem` akk = removeDuplicates' akk xs
+  | otherwise = removeDuplicates' (akk ++ [x]) xs
