@@ -26,7 +26,18 @@ type Addressreg = (B, T, C, R, P)
 
 newtype Atom = A String deriving (Eq)
 
-data Argument = ATNot | ATNeg | ATAtom Atom deriving (Eq, Show)
+type Symbol = Atom
+
+type Arity = Int
+
+data Argument
+  = ATNot
+  | ATNeg
+  | ATAtom Atom
+  | ATStr Symbol Arity -- Für push (GroundL)
+  | ATChp -- Für push (GroundL)
+  | ATEndAtom
+  deriving (Eq, Show)
 
 instance Show Atom where
   show (A str) = str
@@ -162,6 +173,42 @@ push atom ((b, t, c, _, p), stack) code =
 push' :: Argument -> I -> Zielcode -> I
 push' arg (regs@(b, t, c, r, p), stack) code =
   ((b, t +<- 4, t +<- 1, t +<- 2, p), newStackForPush (regs, stack) arg code)
+
+-- Push für GroundL
+push'' :: Argument -> (I -> (Zielcode -> I))
+-- push STR Symbol Arity
+push'' arg@(ATStr sym arity) ((b, t, c, r, p), stack) _ =
+  ( (b, t +<- 1, c, r, p +<- 1),
+    stackReplaceAtLocation
+      (pToInt $ t +<- 1)
+      (CodeArg arg)
+      stack
+  )
+-- Push CHP
+-- TODO: UP Register
+push'' ATChp ((b, t, c, r, p), stack) code =
+  ( (b, t +<- 1, t +<- 1, t +<- 2, p +<- 1),
+    stackReplaceAtLocation
+      (pToInt $ t +<- 2)
+      (CodeAddress c)
+      ( stackReplaceAtLocation
+          (pToInt $ t +<- 1)
+          (CodeAddress $ cFirst code)
+          stack
+      )
+  )
+push'' ATEndAtom ((b, t, c, r, p), stack) _ =
+  ( (b, t, c, r, p +<- 1),
+    stackReplaceAtLocation
+      (pToInt $ c +<- 5)
+      (CodeAddress t)
+      ( stackReplaceAtLocation
+          (pToInt $ c +<- 2)
+          (CodeAddress $ p +<- 3)
+          stack
+      )
+  )
+push'' _ _ _ = error "Case not covered by GroundL pattern matching for push."
 
 newStackForPush :: I -> (Argument -> (Zielcode -> Stack StackElement))
 newStackForPush (regs@(b, t, c, r, p), stack) arg code =

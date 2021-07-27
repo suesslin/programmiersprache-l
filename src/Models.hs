@@ -29,7 +29,7 @@ instance Real Pointer
 
 instance Integral Pointer where
   toInteger (Pointer x) = toInteger x
-  toInteger Nil = -1
+  toInteger Nil = error "Tried converting Pointer value Nil to an Integer-type."
 
 {---------------------------------------------------------------------
    Functions for Pointers
