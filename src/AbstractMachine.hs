@@ -22,7 +22,11 @@ type R = Pointer
 
 type P = Pointer
 
-type Addressreg = (B, T, C, R, P)
+type Up = Pointer
+
+type AddressRegs = (B, T, C, R, P)
+
+type AddressRegs' = (B, T, C, R, P, Up)
 
 newtype Atom = A String deriving (Eq)
 
@@ -66,24 +70,24 @@ stackItemToInt (CodeAddress x) = Just x
 stackItemToInt (StackAddress x) = Just x
 stackItemToInt _ = Nothing
 
--- Unsafe operation that gets the pointer from Stack stack at location i.
--- Can fail if i is out of range or if the item is no Pointer <=> Nothing (fromJust fails)
+-- Unsafe operation that gets the pointer from Stack stack at location (AddressRegs, MLStack).
+-- Can fail if (AddressRegs, MLStack) is out of range or if the item is no Pointer <=> Nothing (fromJust fails)
 unsafePointerFromStackAtLocation :: Int -> Stack StackElement -> Pointer
 unsafePointerFromStackAtLocation i stack =
   fromJust . stackItemToInt $ stackItemAtLocation i stack
 
-type I = (Addressreg, Stack StackElement) -- why is this named I? Stack [String] needs rework
+type MLStack = Stack StackElement
 
 -- Commands, necessary for having a List of named partially applied functions
 data Command
-  = Unify (Atom -> I -> I) Atom
-  | Push (Atom -> I -> Zielcode -> I) Atom
-  | Push' (Argument -> I -> Zielcode -> I) Argument
-  | Call (I -> Zielcode -> I)
-  | Prompt (I -> Zielcode -> I)
-  | Backtrack (I -> Zielcode -> I)
-  | Return' (Argument -> I -> I) Argument
-  | Return (I -> I)
+  = Unify (Atom -> (AddressRegs, MLStack) -> (AddressRegs, MLStack)) Atom
+  | Push (Atom -> (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)) Atom
+  | Push' (Argument -> (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)) Argument
+  | Call ((AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack))
+  | Prompt ((AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack))
+  | Backtrack ((AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack))
+  | Return' (Argument -> (AddressRegs, MLStack) -> (AddressRegs, MLStack)) Argument
+  | Return ((AddressRegs, MLStack) -> (AddressRegs, MLStack))
 
 instance Show Command where
   show (Unify fkt atom) = "unify" ++ " " ++ show atom
@@ -160,7 +164,7 @@ codeGen parsetree = üb parsetree (Stack [])
    Instruktionen
  ---------------------------------------------------------------}
 
-push :: Atom -> I -> Zielcode -> I
+push :: Atom -> (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 push atom ((b, t, c, _, p), stack) code =
   ( (b, addPi t 4, addPi t 1, addPi t 2, addPi p 1),
     stackTake (pToInt (addPi t 1)) stack
@@ -170,12 +174,12 @@ push atom ((b, t, c, _, p), stack) code =
   )
 
 -- Push für Negation durch Scheitern
-push' :: Argument -> I -> Zielcode -> I
+push' :: Argument -> (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 push' arg (regs@(b, t, c, r, p), stack) code =
   ((b, t +<- 4, t +<- 1, t +<- 2, p), newStackForPush (regs, stack) arg code)
 
 -- Push für GroundL
-push'' :: Argument -> (I -> (Zielcode -> I))
+push'' :: Argument -> ((AddressRegs, MLStack) -> (Zielcode -> (AddressRegs, MLStack)))
 -- push STR Symbol Arity
 push'' arg@(ATStr sym arity) ((b, t, c, r, p), stack) _ =
   ( (b, t +<- 1, c, r, p +<- 1),
@@ -210,13 +214,13 @@ push'' ATEndAtom ((b, t, c, r, p), stack) _ =
   )
 push'' _ _ _ = error "Case not covered by GroundL pattern matching for push."
 
-newStackForPush :: I -> (Argument -> (Zielcode -> Stack StackElement))
+newStackForPush :: (AddressRegs, MLStack) -> (Argument -> (Zielcode -> Stack StackElement))
 newStackForPush (regs@(b, t, c, r, p), stack) arg code =
   stackWriteToLocation (pToInt $ t +<- 4) (CodeArg arg)
     . stackWriteToLocation (pToInt $ t +<- 2) (CodeAddress c)
     $ newConditionalStackForPush (regs, stack) arg code
 
-newConditionalStackForPush :: I -> (Argument -> (Zielcode -> Stack StackElement))
+newConditionalStackForPush :: (AddressRegs, MLStack) -> (Argument -> (Zielcode -> Stack StackElement))
 newConditionalStackForPush ((_, t, _, _, p), stack) ATNot _ =
   stackWriteToLocation (pToInt $ t +<- 3) (CodeAddress $ p +<- 4) $
     stackWriteToLocation (pToInt $ t +<- 1) (CodeAddress Nil) stack
@@ -224,13 +228,13 @@ newConditionalStackForPush ((_, t, _, _, p), stack) _ code =
   stackWriteToLocation (pToInt $ t +<- 3) (CodeAddress $ p +<- 3) $
     stackWriteToLocation (pToInt $ t +<- 1) (CodeAddress $ cFirst code) stack
 
-unify :: Atom -> I -> I
+unify :: Atom -> (AddressRegs, MLStack) -> (AddressRegs, MLStack)
 unify atom ((_, t, c, r, p), stack) =
   let b' = stackItemAtLocation (pToInt (addPi c 3)) stack /= CodeAtom atom
    in ((b', t, c, r, addPi p 1), stack)
 
 -- TODO: Auseinanderziehen
-call :: I -> Zielcode -> I
+call :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 call ((b, t, c, r, p), stack) code =
   if stackItemAtLocation (pToInt c) stack == CodeAddress Nil -- TODO,actually just undefinied
     then ((True, t, c, r, addPi p 1), stack)
@@ -246,7 +250,7 @@ call ((b, t, c, r, p), stack) code =
        in ((b, t, c, r, p'), stack')
 
 -- possible problem; nur logisches entkellern, untested
-returnL :: I -> I
+returnL :: (AddressRegs, MLStack) -> (AddressRegs, MLStack)
 returnL ((b, t, c, r, p), stack) =
   let p' = unsafePointerFromStackAtLocation (pToInt (addPi r 1)) stack
    in if stackItemAtLocation (pToInt r) stack /= CodeAddress Nil
@@ -263,16 +267,16 @@ returnL ((b, t, c, r, p), stack) =
 --         ++ "\n\n"
 
 -- Return für Negation durch Scheitern
-returnL' :: Argument -> I -> I
+returnL' :: Argument -> (AddressRegs, MLStack) -> (AddressRegs, MLStack)
 returnL' arg (regs, stack) =
   newStackForReturnIfNoBackjump $ newStackForReturnIfNeg arg (regs, stack)
 
-newStackForReturnIfNeg :: Argument -> I -> I
+newStackForReturnIfNeg :: Argument -> (AddressRegs, MLStack) -> (AddressRegs, MLStack)
 newStackForReturnIfNeg ATNeg ((b, t, c, r, p), stack) =
   ((False, t, c, r, p), stackWriteToLocation (pToInt $ r -<- 1) (CodeAddress Nil) stack)
 newStackForReturnIfNeg _ (regs, stack) = (regs, stack)
 
-newStackForReturnIfNoBackjump :: I -> I
+newStackForReturnIfNoBackjump :: (AddressRegs, MLStack) -> (AddressRegs, MLStack)
 newStackForReturnIfNoBackjump ((b, t, c, r, p), stack)
   | stackItemAtLocation (pToInt r) stack /= CodeAddress Nil =
     let p' = (fromJust . stackItemToInt $ stackItemAtLocation (pToInt r + 1) stack)
@@ -281,31 +285,31 @@ newStackForReturnIfNoBackjump ((b, t, c, r, p), stack)
   | otherwise =
     ((b, t, c, r, p +<- 1), stack)
 
-backtrackQ :: I -> Zielcode -> I
+backtrackQ :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 backtrackQ (regs@(True, _, _, _, _), stack) code = backtrack (regs, stack) code
 backtrackQ (regs, stack) code = noBacktrack (regs, stack)
 
 -- Backtrack flag is set to True
-backtrack :: I -> Zielcode -> I
-backtrack i@(_, stack) code =
-  let (regs'@(_, _, c', _, _), stack') = physicalPoppingIfCpNilAndBackjumpNot i
+backtrack :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
+backtrack state@(_, stack) code =
+  let (regs'@(_, _, c', _, _), stack') = physicalPoppingIfCpNilAndBackjumpNot state
    in if unsafeIsStackNilForRegister c' stack'
         then backtrackCpNil (regs', stack') code
         else backtrackCpNotNil (regs', stack') code
 
-backtrackCpNil :: I -> Zielcode -> I
+backtrackCpNil :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 backtrackCpNil ((b, t, c, r, _), stack) code = ((b, t, c, r, cLast code), stack)
 
-backtrackCpNotNil :: I -> Zielcode -> I
+backtrackCpNotNil :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 backtrackCpNotNil ((_, t, c, r, _), stack) code =
   ( (False, t, c, r, unsafePointerFromStackAtLocation (pToInt c) stack),
     stackReplaceAtLocation (pToInt c) (CodeAddress $ cNext code c) stack
   )
 
-noBacktrack :: I -> I
+noBacktrack :: (AddressRegs, MLStack) -> (AddressRegs, MLStack)
 noBacktrack ((b, t, c, r, p), stack) = ((b, t, c, r, addPi p 1), stack)
 
-physicalPoppingIfCpNilAndBackjumpNot :: I -> I
+physicalPoppingIfCpNilAndBackjumpNot :: (AddressRegs, MLStack) -> (AddressRegs, MLStack)
 physicalPoppingIfCpNilAndBackjumpNot ((b, t, c, r, p), stack)
   | unsafeIsStackNilForRegister c stack && not (unsafeIsStackNilForRegister r stack) =
     ( ( b,
@@ -324,33 +328,35 @@ unsafeIsStackNilForRegister (Pointer regAddr) stack =
 unsafeIsStackNilForRegister Nil _ = error "Empty register (Nil) but expected an address."
 
 -- Backtrack? für Negation durch Scheitern
-backtrackQ' :: I -> Zielcode -> I
+backtrackQ' :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 backtrackQ' (regs@(True, _, _, _, _), stack) code = backtrack' (regs, stack) code
 backtrackQ' (regs, stack) code = noBacktrack (regs, stack)
 
 -- Backtrack flag is set to True
-backtrack' :: I -> Zielcode -> I
-backtrack' i@(_, stack) code =
-  let (regs'@(_, _, c', _, _), stack') = physicalPoppingIfCpNilAndBackjumpNot i
+backtrack' :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
+backtrack' state@(_, stack) code =
+  let (regs'@(_, _, c', _, _), stack') = physicalPoppingIfCpNilAndBackjumpNot state
    in if unsafeIsStackNilForRegister c' stack'
         then backtrackCpNil' (regs', stack') code
         else backtrackCpNotNil (regs', stack') code
 
-backtrackCpNil' :: I -> Zielcode -> I
+backtrackCpNil' :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 backtrackCpNil' ((b, t, c, r, _), stack) code
   | stackItemAtLocation (pToInt c + 3) stack == CodeArg ATNot =
     ((b, t, c, r, unsafePointerFromStackAtLocation (pToInt $ c +<- 2) stack), stack)
   | otherwise =
     ((b, t, c, r, cLast code), stack)
 
+-- Backtrack? für GroundL
+
 -- TODO: Discuss how else to solve this: Since prompt ist the last instruction, perhaps --       impurely through main?
-prompt :: I -> Zielcode -> I -- greedy prompt without IO, temporary solution
+prompt :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack) -- greedy prompt without IO, temporary solution
 prompt reg@((b, t, c, r, p), stack) code =
   if b
     then ((b, t, c, r, Nil), stack) -- should be nil or undefinied, fix by using stack?
     else ((True, t, c, r, addPi p (-1)), stack)
 
-prompt' :: I -> Zielcode -> IO ()
+prompt' :: (AddressRegs, MLStack) -> Zielcode -> IO ()
 prompt' reg@((b, t, c, r, p), stack) code
   | b = do
     putStrLn "no (more) solutions."
@@ -396,7 +402,7 @@ cGoal (Stack code) = case stackLocationLastItemOfKind' "return" (transformN code
  ---------------------------------------------------------------------}
 
 -- evaluator(s), there might be a better solution for our command datatype
-callZielcode :: Command -> I -> Zielcode -> I
+callZielcode :: Command -> (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 callZielcode (Push _ atom) reg code = push atom reg code
 callZielcode (Push' _ arg) reg code = push' arg reg code
 callZielcode (Unify _ atom) reg _ = unify atom reg
@@ -406,25 +412,25 @@ callZielcode (Return _) reg _ = returnL reg
 callZielcode (Return' _ arg) reg _ = returnL' arg reg
 callZielcode (Prompt _) reg code = prompt reg code
 
-{- callPrompt':: Command -> I -> Zielcode -> IO()
+{- callPrompt':: Command -> (AddressRegs, MLStack) -> Zielcode -> IO()
 callPrompt' (Prompt' name inst) reg code = prompt' reg code
 callPrompt' _ _ _ = error $ "eval prompt failed." -}
 
 --TODO, for prompt implementation
-{- callFromPrompt :: I -> Zielcode -> IO()
+{- callFromPrompt :: (AddressRegs, MLStack) -> Zielcode -> IO()
 callFromPrompt reg (Stack (firstfkt:rest)) = do
    putStrLn "reeval"
    let newreg = callZielcode firstfkt reg (Stack rest)
    prompt newreg code  -}
 
-runner :: I -> Zielcode -> Zielcode -> I
+runner :: (AddressRegs, MLStack) -> Zielcode -> Zielcode -> (AddressRegs, MLStack)
 runner reg (Stack (firstfkt : rest)) code = runner (callZielcode firstfkt reg code) (Stack rest) code
 runner reg (Stack []) code = reg
 
 -- code :: Zielcode
 -- code = codeGen (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
 
--- initial :: I
+-- initial :: (AddressRegs, MLStack)
 -- initial = ((False, Pointer (-1), Nil, Nil, cGoal code), initStack)
 
 -- initStack :: Stack StackElement
