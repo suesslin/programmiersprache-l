@@ -70,8 +70,8 @@ stackItemToInt (CodeAddress x) = Just x
 stackItemToInt (StackAddress x) = Just x
 stackItemToInt _ = Nothing
 
--- Unsafe operation that gets the pointer from Stack stack at location (AddressRegs, MLStack).
--- Can fail if (AddressRegs, MLStack) is out of range or if the item is no Pointer <=> Nothing (fromJust fails)
+-- Unsafe operation that gets the pointer from Stack stack at location i.
+-- Can fail if i is out of range or if the item is no Pointer <=> Nothing (fromJust fails)
 unsafePointerFromStackAtLocation :: Int -> Stack StackElement -> Pointer
 unsafePointerFromStackAtLocation i stack =
   fromJust . stackItemToInt $ stackItemAtLocation i stack
