@@ -7,6 +7,8 @@ import Parser
 import Stack
 import Tokenizer
 
+-- TODO: Update Registers in Instruction types (datatype Command)
+-- TODO: Make sure all the new instructions like Return' are used
 -- TODO: Rewrite Symbol as data Symbol = SymA Atom | SymV Variable
 -- TODO: Reorganize signatures: Zielcode -> ... (better currying/partial application)
 -- TODO: Reconsider places that used fromJust (unsafe)
@@ -15,39 +17,61 @@ import Tokenizer
 -- Register
 --Instruktionsregister, Int ist Placeholder, kp was das für ein Typ werden wird, habs selber nicht gebraucht (Marco)
 type I = Int
+
 --Flagregister
 type B = Bool
+
 --AdressRegister
 type T = Pointer
+
 type C = Pointer
+
 type R = Pointer
+
 type P = Pointer
+
 type E = Pointer
+
 type Up = Pointer
+
 type Ut = Pointer
+
 type Tt = Pointer
+
 --ZählRegister
 type Pc = Int
+
 type Sc = Int
+
 type Ac = Pointer
+
 --Kombination der Register, AddressRegs/Addressreg für MiniL, AddressRegs' ??, FullAddresReg für ML
 type AddressRegs = (B, T, C, R, P)
-type AddressRegs' = (B, T, C, R, P, Up,E)
-type FullAddressreg = (P,T,C,R,E,Up,Ut,Tt,B,Pc,Sc,Ac) -- (Marco)
+
+type AddressRegs' = (B, T, C, R, P, Up, E)
+
+-- TODO: Use one register only and fix it everywhere else
+type FullAddressreg = (P, T, C, R, E, Up, Ut, Tt, B, Pc, Sc, Ac) -- (Marco)
 
 -- Zielcode is the returntype of L Code Translation
 type Zielcode = Stack Command
+
 --Speicherbereiche
 type Speicherbereiche = (MLStack, Us, Trail) --Muss erweitert werden mit Env, hab ich aber bisher nicht gebraucht (Marco)
+
 type MLStack = Stack StackElement
+
 type Env = Stack
+
 type Us = Stack StackElement
+
 type Trail = Stack StackElement
 
 --Was den Funktionen übegeben wird
 type RegisterKeller = (FullAddressreg, Speicherbereiche)
 
 newtype Atom = A String deriving (Eq) --So habe ich es benutzt (Marco)
+
 newtype Variable' = V String deriving (Eq) --So habe ich es benutzt (Marco)
 
 type Symbol = Atom
@@ -64,7 +88,8 @@ data Argument
   | ATEndAtom
   | ATBegEnv
   | ATEndEnv --data Stack Argument (könnte bspw ENdEnv o.ä. enthalten)
-  | ATVar Variable -- ^ 
+  | -- |
+    ATVar Variable
   | ATVar' Variable' Pointer --Marco's Vorschlag, sehe keinen Vorzug ATVar oder ATStr Symbol zu übergeben. Variable' oder Atom reichen aus.
   | ATPush
   | ATUnify
@@ -72,11 +97,10 @@ data Argument
 
 type Addressreg = (B, T, C, R, P)
 
-
-{------------------------- 
-  Datentypen für ML 
+{-------------------------
+  Datentypen für ML
  ----------------------------}
-type Linearization = (String, Arity)
+data Linearization = Linearization String Arity deriving (Eq, Show)
 
 -- TODO: Consider merging them in a "Symbol" type
 newtype Atom' = Str Linearization deriving (Eq)
@@ -91,7 +115,8 @@ instance Show Variable where
 
 instance Show Variable' where -- Marco's Vorschlag
   show (V str) = str
-{- 
+
+{-
   Bestehende Datentypen
  -}
 
@@ -129,8 +154,8 @@ instance Show StackElement where
     ATEndAtom -> "EndAtom"
     (ATAtom atom) -> show atom
     (ATVar var) -> show var --Placeholder hab ich hingeschrieben, weil kb auf non exhaustive Pattern (Marco) würde diese zwei gerne durch meine unten ersetzen :)
-    (ATStr' atom arity) -> concat["STR"," ",show atom,"/", show arity] -- Marco's Vorschlag
-    (ATVar' variable element) -> concat ["VAR"," ",show variable," ", show element] -- Marco's Vorschlag
+    (ATStr' atom arity) -> concat ["STR", " ", show atom, "/", show arity] -- Marco's Vorschlag
+    (ATVar' variable element) -> concat ["VAR", " ", show variable, " ", show element] -- Marco's Vorschlag
 
 --helper
 stackItemToInt :: StackElement -> Maybe Pointer
@@ -144,11 +169,15 @@ unsafePointerFromStackAtLocation :: Int -> Stack StackElement -> Pointer
 unsafePointerFromStackAtLocation i stack =
   fromJust . stackItemToInt $ stackItemAtLocation i stack
 
+-- TODO: Use all registers (see next todo)
+-- TODO: Update AddressRegs to latest datatype
+--       cp. AddressRegs vs. AddressRegs
 -- Commands, necessary for having a List of named partially applied functions
 data Command
   = Unify (Atom -> (AddressRegs, MLStack) -> (AddressRegs, MLStack)) Atom
-  | Push (Atom -> (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)) Atom
-  | Push' (Argument -> (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)) Argument
+  | Unify' (Argument -> RegisterKeller -> RegisterKeller) Argument
+  | Push (Atom -> (AddressRegs', MLStack) -> Zielcode -> (AddressRegs', MLStack)) Atom
+  | Push' (Argument -> (AddressRegs', MLStack) -> Zielcode -> (AddressRegs', MLStack)) Argument
   | Call ((AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack))
   | Prompt ((AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack))
   | Backtrack ((AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack))
@@ -175,7 +204,6 @@ instance Eq Command where
   (==) (Return _) (Return _) = True
   (==) _ _ = False
 
-
 {----------------------------------------------------------
    MiniL; Üb credit: Lukas; angepasst
 -----------------------------------------------------------}
@@ -183,6 +211,7 @@ instance Eq Command where
 codeGen :: Tree -> Zielcode
 codeGen parsetree = üb parsetree (Stack [])
 
+-- TODO: Check if commands are added in the right order (Stack is LIFO/FILO)
 üb :: Tree -> Zielcode -> Zielcode
 -- If there are no Programmklauseln
 üb (TP (Programm [] (Ziel lits))) akk = üb (TZ (Ziel lits)) akk
@@ -200,7 +229,9 @@ codeGen parsetree = üb parsetree (Stack [])
 üb _ akk = error $ "Failure in :- Seq translation." ++ show akk
 
 übHead :: Atom -> Zielcode -> Zielcode
-übHead atom akk = akk <> Stack [Unify unify atom, Backtrack backtrackQ]
+übHead _ _ = undefined
+-- übHead (A atomStr) akk = übUnify (linearize terms) akk
+übHead _ _ = error "übHead was called on something else than Atom (NVLTerm)"
 
 -- TODO: Instead of using let, create separate functions
 übBody :: [Literal] -> Zielcode -> Zielcode
@@ -209,20 +240,42 @@ codeGen parsetree = üb parsetree (Stack [])
   let akk' =
         akk
           <> Stack
-            [ Push' push' ATNot,
-              Push' push' (ATAtom $ A atom),
+            [ Push' push'' ATNot,
+              Push' push'' (ATAtom $ A atom),
               Call call,
-              Backtrack backtrack',
+              Backtrack backtrackQ',
               Return' returnL' ATNeg,
-              Backtrack backtrack'
+              Backtrack backtrackQ'
             ]
    in übBody seq akk'
 -- Üb_Body([Atom | Sequenz])
 übBody ((Literal _ (LTNVar (NVLTerm atom _))) : seq) akk =
-  let akk' = akk <> Stack [Push push (A atom), Call call, Backtrack backtrackQ]
+  let akk' =
+        akk <> Stack [Push' push'' (ATAtom $ A atom), Call call, Backtrack backtrackQ']
    in übBody seq akk'
 übBody [] akk = akk
 übBody _ _ = error "Failure in übBody."
+
+übPush :: [Linearization] -> Zielcode -> Zielcode
+-- ÜbPush([])
+übPush [] akk = akk
+-- ÜbPush(Symbol/Arity)
+übPush [Linearization sym arity] akk = akk <> Stack [Push' push'' $ ATStr (A sym) arity]
+-- ÜbPush([Exp | Sequenz])
+übPush (lin : seq) akk = übPush seq $ übPush [lin] akk
+
+-- TODO: Instead of matching Linearization:seq and Linearization:[] (Exp)
+--       consider using a datatype Exp that covers ExpLin and ExpLins [Linearization]
+übUnify :: [Linearization] -> Zielcode -> Zielcode
+-- übUnify(Symbol/Arity)
+übUnify [Linearization sym arity] akk =
+  akk
+    <> Stack [Unify' unify' (ATStr (A sym) arity)]
+-- übUnify([Exp | Sequenz])
+übUnify (lin : seq) akk =
+  übUnify seq $ übUnify [lin] akk <> Stack [Backtrack backtrackQ']
+-- übUnify([])
+übUnify [] akk = akk
 
 {--------------------------------------------------------------
    InStruktionen
@@ -437,27 +490,27 @@ prompt' reg@((b, t, c, r, p), stack) code
 
 -- Funktion zur Linearisierung von Atomen und Variablen
 
-linearize :: LTerm -> [Atom']
-linearize (LTNVar (NVLTerm atom [])) = [Str (atom, 0)]
+linearize :: LTerm -> [Linearization]
+linearize (LTNVar (NVLTerm atom [])) = [Linearization atom 0]
 linearize (LTNVar (NVLTerm atom subatoms)) =
-  Str (atom, length subatoms) : concatMap linearize subatoms
+  Linearization atom (length subatoms) : concatMap linearize subatoms
 linearize _ = error "linearize called on non-atom" -- valid?
 
 -- Funktion zum finden einer Kelleradresse
 -- Eventuell Problem, siehe Zulip
 
-type I' = ((B,T,C,R,P,E),Stack StackElement) -- Kann entfernt werden oder ? (Marco)
+type I' = ((B, T, C, R, P, E), Stack StackElement) -- Kann entfernt werden oder ? (Marco)
 
 sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
-sAdd all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) symb ATUnify =  sAddHelper all (stackItemAtLocation e stack) e
-sAdd all@(addressreg@(p,t,Nil,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) symb ATPush = Nil -- correct?
-sAdd all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) symb ATPush = sAddHelper all (stackItemAtLocation (c+3) stack) (c+3)
+sAdd all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) symb ATUnify = sAddHelper all (stackItemAtLocation e stack) e
+sAdd all@(addressreg@(p, t, Nil, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) symb ATPush = Nil -- correct?
+sAdd all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) symb ATPush = sAddHelper all (stackItemAtLocation (c + 3) stack) (c + 3)
 sAdd _ _ _ = error "something went wrong in s_add"
 
 sAddHelper :: RegisterKeller -> StackElement -> Pointer -> Pointer
-sAddHelper (reg,stacks@(stack,us,trail)) (CodeArg (ATVar (Var name addr))) currentLoc = addr
-sAddHelper (reg,stacks@(stack,us,trail)) (CodeArg ATEndEnv) currentLoc = Nil --stand in für stack argument o.ä. => EndEnv Pointer/Stackinhalt
-sAddHelper (reg,stacks@(stack,us,trail)) item currentLoc = sAddHelper (reg,stacks) (stackItemAtLocation (currentLoc+1) stack) currentLoc+1
+sAddHelper (reg, stacks@(stack, us, trail)) (CodeArg (ATVar (Var name addr))) currentLoc = addr
+sAddHelper (reg, stacks@(stack, us, trail)) (CodeArg ATEndEnv) currentLoc = Nil --stand in für stack argument o.ä. => EndEnv Pointer/Stackinhalt
+sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
 -- TODO stand in value für richtigen Wert
@@ -565,98 +618,105 @@ runner reg (Stack []) code = reg
 ---------------------------------------------------------------------}
 
 --Makroinstruktionen
-addAC:: Int -> FullAddressreg -> FullAddressreg
-addAC n adressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac) = case ac of
-  Pointer i -> (p,t,c,r,e,up,ut,tt,b,pc,sc, ac +<- n)
+addAC :: Int -> FullAddressreg -> FullAddressreg
+addAC n adressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac) = case ac of
+  Pointer i -> (p, t, c, r, e, up, ut, tt, b, pc, sc, ac +<- n)
   Nil -> adressreg
 
 restoreAcUpQ :: Us -> FullAddressreg -> FullAddressreg
-restoreAcUpQ us adressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac)
-  | ac == Pointer 0 = (p,t,c,r,e,unsafePointerFromStackAtLocation (pToInt ut) us,ut -<- 2,tt,b,pc,sc,unsafePointerFromStackAtLocation (pToInt (ut -<- 1)) us)
+restoreAcUpQ us adressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac)
+  | ac == Pointer 0 = (p, t, c, r, e, unsafePointerFromStackAtLocation (pToInt ut) us, ut -<- 2, tt, b, pc, sc, unsafePointerFromStackAtLocation (pToInt (ut -<- 1)) us)
   | otherwise = adressreg
 
 saveAcUpQ :: RegisterKeller -> RegisterKeller
-saveAcUpQ all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail))
+saveAcUpQ all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail))
   | up <= unsafePointerFromStackAtLocation (pToInt (c +<- 5)) stack
-    && deref stack up /= up
-    && getArity(stackItemAtLocation (pToInt (deref stack up)) stack) /= 0
-    = ((p,t,c,r,e, deref stack (up +<- 1),ut +<- 2,tt,b,pc,sc,0)
-    ,(stack
-    ,us <> Stack [StackAddress ac, StackAddress (up +<- 1)],trail))
+      && deref stack up /= up
+      && getArity (stackItemAtLocation (pToInt (deref stack up)) stack) /= 0 =
+    ( (p, t, c, r, e, deref stack (up +<- 1), ut +<- 2, tt, b, pc, sc, 0),
+      ( stack,
+        us <> Stack [StackAddress ac, StackAddress (up +<- 1)],
+        trail
+      )
+    )
   | otherwise = all
-
 
 {--------------------------------------------------------------------
               ML Unify
 ---------------------------------------------------------------------}
 
 unify' :: Argument -> RegisterKeller -> RegisterKeller
-unify' arg all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail))
+unify' arg all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail))
   | pc >= 1 = unifyPushModus arg all
   | otherwise = unifyNonPushModus arg all
 
 unifyPushModus :: Argument -> RegisterKeller -> RegisterKeller
-unifyPushModus arg all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) = case arg of
-  ATStr' atom ar -> (((p-<-1)+<-getArity(CodeArg arg),t+<-1,c,r,e,up,ut,tt,b,pc,sc,ac),(stack <> Stack [CodeArg arg], us,trail))
-  ATVar' var add -> (((p-<-1)+<-getArity(CodeArg arg),t+<-1,c,r,e,up,ut,tt,b,pc,sc,ac),(stack <> Stack [CodeArg (ATVar' var (sAdd all arg ATUnify))], us,trail))
+unifyPushModus arg all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = case arg of
+  ATStr' atom ar -> (((p -<- 1) +<- getArity (CodeArg arg), t +<- 1, c, r, e, up, ut, tt, b, pc, sc, ac), (stack <> Stack [CodeArg arg], us, trail))
+  ATVar' var add -> (((p -<- 1) +<- getArity (CodeArg arg), t +<- 1, c, r, e, up, ut, tt, b, pc, sc, ac), (stack <> Stack [CodeArg (ATVar' var (sAdd all arg ATUnify))], us, trail))
   _ -> error "Mitgegebenes Argument für PushModus muss Lineares Atom oder eine Variable sein"
 
+-- TODO: Refactor this. This is abnormous and beyond the possibility of understanding
 unifyNonPushModus :: Argument -> RegisterKeller -> RegisterKeller
-unifyNonPushModus arg all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) = case arg of
-  (ATStr' (A str) arity) -> if sameSymbol str all
-                                  then let (p',t',c',r',e',up',ut',tt',b',pc',sc',ac') = restoreAdd arity all
-                                      in ((p',t',c',r',e',up'+<-1,ut',tt',b',pc',sc',ac'), (stack <> Stack [CodeArg arg], us, trail <> Stack [TrailAddress (deref stack up)]))
-                                  else let (CodeArg (ATVar' symb add)) = getCodeArgFromStack all
-                                      in if V str /= symb || Pointer arity /= add
-                                        then ((p,t,c,r,e,up,ut,tt,True,pc,sc,ac),(stack,us,trail))
-                                        else let (p',t',c',r',e',up',ut',tt',b',pc',sc',ac') = arityValue arity all
-                                              in saveAcUpQ ((p'+<-1,t',c',r',e',up'+<-1,ut',tt',b',pc',sc',ac'), (stack, us, trail))
-
-
-
-  (ATVar' var add) -> let (adressreg'@(p',t',c',r',e',up',ut',tt',b',pc',sc',ac'),(stack',us',trail')) = if sameSymbolButNil arg var all
-                                                                                                then let element@(CodeArg (ATVar' symb up)) = stackItemAtLocation (pToInt (derefsAddu arg all)) stack
-                                                                                                      in scGreaterOne((p,t,c,r,e,up,ut,tt+<-1,b,pc,arityUP all,ac),(replaceStack element all,us,trail <> Stack [TrailAddress (derefsAddu arg all)]))
-                                                                                                else let all'@((p',t',c',r',e',up',ut',tt',b',pc',sc',ac'),(stack',us',trail')) = ((p,t,c,r,e,up,ut+<-1,tt,b,pc,sc,ac),(stack,us <> Stack [StackAddress t],trail))
-                                                                                                      in ((p',pointerFromUsAt ut' us',c',r',e',up',ut'-<-1,tt',not (unification (derefsAddu arg all') up all'),pc',sc',ac'),(stack',us',trail'))
-                        in (up1 $ restoreAcUpQ us' $ addAC (-1) adressreg',(stack',us',trail'))
-
+unifyNonPushModus arg all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = case arg of
+  (ATStr' (A str) arity) ->
+    if sameSymbol str all
+      then
+        let (p', t', c', r', e', up', ut', tt', b', pc', sc', ac') = restoreAdd arity all
+         in ((p', t', c', r', e', up' +<- 1, ut', tt', b', pc', sc', ac'), (stack <> Stack [CodeArg arg], us, trail <> Stack [TrailAddress (deref stack up)]))
+      else
+        let (CodeArg (ATVar' symb add)) = getCodeArgFromStack all
+         in if V str /= symb || Pointer arity /= add
+              then ((p, t, c, r, e, up, ut, tt, True, pc, sc, ac), (stack, us, trail))
+              else
+                let (p', t', c', r', e', up', ut', tt', b', pc', sc', ac') = arityValue arity all
+                 in saveAcUpQ ((p' +<- 1, t', c', r', e', up' +<- 1, ut', tt', b', pc', sc', ac'), (stack, us, trail))
+  (ATVar' var add) ->
+    let (adressreg'@(p', t', c', r', e', up', ut', tt', b', pc', sc', ac'), (stack', us', trail')) =
+          if sameSymbolButNil arg var all
+            then
+              let element@(CodeArg (ATVar' symb up)) = stackItemAtLocation (pToInt (derefsAddu arg all)) stack
+               in scGreaterOne ((p, t, c, r, e, up, ut, tt +<- 1, b, pc, arityUP all, ac), (replaceStack element all, us, trail <> Stack [TrailAddress (derefsAddu arg all)]))
+            else
+              let all'@((p', t', c', r', e', up', ut', tt', b', pc', sc', ac'), (stack', us', trail')) = ((p, t, c, r, e, up, ut +<- 1, tt, b, pc, sc, ac), (stack, us <> Stack [StackAddress t], trail))
+               in ((p', pointerFromUsAt ut' us', c', r', e', up', ut' -<- 1, tt', not (unification (derefsAddu arg all') up all'), pc', sc', ac'), (stack', us', trail'))
+     in (up1 $ restoreAcUpQ us' $ addAC (-1) adressreg', (stack', us', trail'))
   _ -> error "Mitgegebenes Argument für NonPush-Modus muss Lineares Atom oder eine Variable sein"
 
 -- ML Unify Teilfunktionen
-restoreAdd :: Arity -> RegisterKeller ->  FullAddressreg
-restoreAdd arity all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) = restoreAcUpQ us (addAC (-1) (p,t+<-1,c,r,e,up,ut,tt+<-1,b,arity,sc,ac))
+restoreAdd :: Arity -> RegisterKeller -> FullAddressreg
+restoreAdd arity all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = restoreAcUpQ us (addAC (-1) (p, t +<- 1, c, r, e, up, ut, tt +<- 1, b, arity, sc, ac))
 
 getCodeArgFromStack :: RegisterKeller -> StackElement
-getCodeArgFromStack all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) = stackItemAtLocation (pToInt (deref stack up)) stack
+getCodeArgFromStack all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = stackItemAtLocation (pToInt (deref stack up)) stack
 
-sameSymbol :: String -> RegisterKeller ->  Bool
-sameSymbol str all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) = stackItemAtLocation (pToInt(deref stack up)) stack == CodeArg (ATVar' (V str) Nil)
+sameSymbol :: String -> RegisterKeller -> Bool
+sameSymbol str all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = stackItemAtLocation (pToInt (deref stack up)) stack == CodeArg (ATVar' (V str) Nil)
 
-sameSymbolButNil ::  Argument -> Variable' -> RegisterKeller -> Bool
-sameSymbolButNil arg var all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),all2@(stack, us,trail)) = stackItemAtLocation (pToInt(derefsAddu arg all)) stack == CodeArg (ATVar' var Nil)
+sameSymbolButNil :: Argument -> Variable' -> RegisterKeller -> Bool
+sameSymbolButNil arg var all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), all2@(stack, us, trail)) = stackItemAtLocation (pToInt (derefsAddu arg all)) stack == CodeArg (ATVar' var Nil)
 
 arityValue :: Arity -> RegisterKeller -> FullAddressreg
-arityValue arity all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) =
+arityValue arity all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) =
   if arity >= 1
     then restoreAcUpQ us $ addAC arity addressreg
     else restoreAcUpQ us $ addAC (-1) addressreg
 
 arityUP :: RegisterKeller -> Int
-arityUP all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) = getArity(stackItemAtLocation (pToInt up) stack)
+arityUP all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = getArity (stackItemAtLocation (pToInt up) stack)
 
 derefsAddu :: Argument -> RegisterKeller -> Pointer
-derefsAddu arg all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) = deref stack (sAdd all arg ATUnify)
+derefsAddu arg all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = deref stack (sAdd all arg ATUnify)
 
 scGreaterOne :: RegisterKeller -> RegisterKeller
-scGreaterOne all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),all2@(stack, us,trail)) = if sc >= 1 then scGreaterOne ((p,t,c,r,e,up+<-1,ut,tt,b,pc,(sc-1)+ arityUP all,ac),all2) else all
+scGreaterOne all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), all2@(stack, us, trail)) = if sc >= 1 then scGreaterOne ((p, t, c, r, e, up +<- 1, ut, tt, b, pc, (sc -1) + arityUP all, ac), all2) else all
 
 replaceStack :: StackElement -> RegisterKeller -> MLStack
-replaceStack element@(CodeArg arg) all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) = stackReplaceAtLocation (pToInt (derefsAddu arg all)) element stack
+replaceStack element@(CodeArg arg) all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = stackReplaceAtLocation (pToInt (derefsAddu arg all)) element stack
 replaceStack _ _ = error "Dont need the other StackElements"
 
 up1 :: FullAddressreg -> FullAddressreg
-up1 (p,t,c,r,e,up,ut,tt,b,pc,sc,ac) = (p,t,c,r,e,up+<-1,ut,tt,b,pc,sc,ac)
+up1 (p, t, c, r, e, up, ut, tt, b, pc, sc, ac) = (p, t, c, r, e, up +<- 1, ut, tt, b, pc, sc, ac)
 
 pointerFromUsAt :: Pointer -> Us -> Pointer
 pointerFromUsAt ut = unsafePointerFromStackAtLocation (pToInt ut)
@@ -671,4 +731,4 @@ getArity _ = error "What"
 --sAdd = error "not implemented"
 
 unification :: Pointer -> Pointer -> RegisterKeller -> Bool
-unification add1 add2 all@(addressreg@(p,t,c,r,e,up,ut,tt,b,pc,sc,ac),(stack, us,trail)) = undefined
+unification add1 add2 all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = undefined
