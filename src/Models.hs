@@ -13,7 +13,15 @@ instance Num Pointer where
   Nil - Nil = Nil
   (Pointer _) - Nil = Nil
   Nil - (Pointer y) = Nil
+  Nil * Nil = Nil
+  (Pointer _) * Nil = Nil
+  Nil * (Pointer _) = Nil
+  (Pointer x) * (Pointer y) = Pointer (x*y)
   fromInteger x = Pointer (fromInteger x)
+  abs Nil = Nil
+  abs (Pointer x) = Pointer (abs x)
+  signum Nil = Nil
+  signum (Pointer x) = Pointer (signum x)
 
 instance Ord Pointer where
   compare (Pointer x) (Pointer y) = compare x y
@@ -23,13 +31,22 @@ instance Ord Pointer where
 
 -- TODO
 
-instance Enum Pointer
+instance Enum Pointer where
+  fromEnum Nil         = undefined
+  fromEnum (Pointer x) = x
+  toEnum x    = Pointer x
 
-instance Real Pointer
+instance Real Pointer where
+  toRational Nil = undefined
+  toRational (Pointer x) = toRational x
 
 instance Integral Pointer where
   toInteger (Pointer x) = toInteger x
   toInteger Nil = error "Tried converting Pointer value Nil to an Integer-type."
+  quotRem Nil         Nil         = undefined
+  quotRem (Pointer x) Nil         = undefined
+  quotRem Nil         (Pointer y) = undefined 
+  quotRem (Pointer x) (Pointer y) = let (z,v) = quotRem x y in (Pointer z, Pointer v)
 
 {---------------------------------------------------------------------
    Functions for Pointers
