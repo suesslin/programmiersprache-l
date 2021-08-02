@@ -47,6 +47,10 @@ pToInt :: Pointer -> Int
 pToInt (Pointer x) = x
 pToInt Nil = error "Failed getting Int out of Pointer"
 
+isPNil :: Pointer -> Bool
+isPNil Nil = True
+isPNil _ = False
+
 -- An infix operator for addPi. The symbol Represents a pointer and a plus.
 -- Thus describing what it actually does (note the pointer points towards the pointer arg)
 (+<-) = addPi

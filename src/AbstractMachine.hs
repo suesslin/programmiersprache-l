@@ -7,6 +7,7 @@ import Parser
 import Stack
 import Tokenizer
 
+-- TODO: Rewrite Symbol as data Symbol = SymA Atom | SymV Variable
 -- TODO: Reorganize signatures: Zielcode -> ... (better currying/partial application)
 -- TODO: Reconsider places that used fromJust (unsafe)
 -- FIXME: In some places, regs@ refers to the regs and the stack. This is wrong! Fix it.
@@ -24,11 +25,11 @@ type P = Pointer
 
 type Up = Pointer
 
-type E = Pointer 
+type E = Pointer
 
 type AddressRegs = (B, T, C, R, P)
 
-type AddressRegs' = (B, T, C, R, P, Up)
+type AddressRegs' = (B, T, C, R, P, Up, E)
 
 newtype Atom = A String deriving (Eq)
 
@@ -44,42 +45,43 @@ data Argument
   | ATChp -- Für push (GroundL)
   | ATEndAtom
   | ATEndEnv --data Stack Argument (könnte bspw ENdEnv o.ä. enthalten)
-  | ATStr Atom' -- Suggestion
-  | ATVar Variable -- ^ 
+  | -- |
+    ATVar Variable
   | ATPush
-  | ATUnify 
-  deriving (Eq, Show) 
+  | ATUnify
+  deriving (Eq, Show)
 
 type Addressreg = (B, T, C, R, P)
 
-newtype Atom = A String deriving (Eq)
-
-{------------------------- 
-  Datentypen für ML 
+{-------------------------
+  Datentypen für ML
  ----------------------------}
 type Linearization = (String, Arity)
 
+-- TODO: Consider merging them in a "Symbol" type
 newtype Atom' = Str Linearization deriving (Eq)
-newtype Variable = Var (String, Pointer) deriving (Eq)
 
-instance Show Atom' where 
+data Variable = Var String Pointer deriving (Eq)
+
+instance Show Atom' where
   show (Str lin) = "Str " ++ show lin
 
 instance Show Variable where
-  show (Var (name, addr)) = "Var " ++ show name ++ show addr  
-{- 
+  show (Var name addr) = "Var " ++ show name ++ show addr
+
+{-
   Bestehende Datentypen
  -}
 
 --data Stack Argument (könnte bspw ENdEnv o.ä. enthalten)
 
 instance Show Atom where
-  show (A Str) = Str
+  show (A str) = str
 
 -- TODO: Merge CodeAtom and Argument (Atom is contained in Argument)
 data StackElement
   = CodeAtom Atom
-  | CodeVariable Variable 
+  | CodeVariable Variable
   | CodeAddress Pointer
   | StackAddress Pointer
   | CodeArg Argument
@@ -91,12 +93,15 @@ instance Show StackElement where
   show (CodeAddress adr) = "c" ++ show adr
   show (StackAddress adr) = "s" ++ show adr
   show (CodeArg arg) = case arg of
+    (ATStr sym arityVal) -> show sym ++ "/" ++ show arityVal
     ATNot -> "not"
     ATNeg -> "neg"
     ATPush -> "push"
     ATUnify -> "unify"
     (ATAtom atom) -> show atom
-    
+    v -> show v
+  show _ = error "Unexpected StackElement was tried to be printed"
+
 --helper
 stackItemToInt :: StackElement -> Maybe Pointer
 stackItemToInt (CodeAddress x) = Just x
@@ -212,10 +217,10 @@ push' arg (regs@(b, t, c, r, p), stack) code =
   ((b, t +<- 4, t +<- 1, t +<- 2, p), newStackForPush (regs, stack) arg code)
 
 -- Push für GroundL
-push'' :: Argument -> ((AddressRegs, MLStack) -> (Zielcode -> (AddressRegs, MLStack)))
+push'' :: Argument -> ((AddressRegs', MLStack) -> (Zielcode -> (AddressRegs', MLStack)))
 -- push Str Symbol Arity
-push'' arg@(ATStr sym arity) ((b, t, c, r, p), stack) _ =
-  ( (b, t +<- 1, c, r, p +<- 1),
+push'' arg@(ATStr sym arity) ((b, t, c, r, p, up, e), stack) _ =
+  ( (b, t +<- 1, c, r, p +<- 1, up, e),
     stackReplaceAtLocation
       (pToInt $ t +<- 1)
       (CodeArg arg)
@@ -223,8 +228,8 @@ push'' arg@(ATStr sym arity) ((b, t, c, r, p), stack) _ =
   )
 -- Push CHP
 -- TODO: UP Register
-push'' ATChp ((b, t, c, r, p), stack) code =
-  ( (b, t +<- 1, t +<- 1, t +<- 2, p +<- 1),
+push'' ATChp ((b, t, c, r, p, up, e), stack) code =
+  ( (b, t +<- 7, t +<- 1, t +<- 2, p +<- 1, t + 7, e),
     stackReplaceAtLocation
       (pToInt $ t +<- 2)
       (CodeAddress c)
@@ -234,8 +239,8 @@ push'' ATChp ((b, t, c, r, p), stack) code =
           stack
       )
   )
-push'' ATEndAtom ((b, t, c, r, p), stack) _ =
-  ( (b, t, c, r, p +<- 1),
+push'' ATEndAtom ((b, t, c, r, p, up, e), stack) _ =
+  ( (b, t, c, r, p +<- 1, up, e),
     stackReplaceAtLocation
       (pToInt $ c +<- 5)
       (CodeAddress t)
@@ -274,10 +279,10 @@ call ((b, t, c, r, p), stack) code =
     else
       let p' = unsafePointerFromStackAtLocation (pToInt c) stack
           stack' =
-              stackReplaceAtLocation
+            stackReplaceAtLocation
               (pToInt c)
               ( CodeAddress $
-                cNext code (fromJust . stackItemToInt $ stackItemAtLocation c stack)
+                  cNext code (fromJust . stackItemToInt $ stackItemAtLocation c stack)
               )
               stack
        in ((b, t, c, r, p'), stack')
@@ -400,70 +405,68 @@ prompt' reg@((b, t, c, r, p), stack) code
       then undefined --evalFromPrompt ((True, t,c,r,p-1), stack) code TODO!!
       else putStrLn "Wrong input, aborting."
 
-{---------------------------------------------------------------------- 
-  Hilfsfunktionen für ML 
+{----------------------------------------------------------------------
+  Hilfsfunktionen für ML
  ----------------------------------------------------------------------}
 
--- Funktion zur Linearisierung von Atomen und Variablen 
+-- Funktion zur Linearisierung von Atomen und Variablen
 
 linearize :: LTerm -> [Atom']
 linearize (LTNVar (NVLTerm atom [])) = [Str (atom, 0)]
-linearize (LTNVar (NVLTerm atom subatoms)) = [Str (atom, length subatoms)] ++ concatMap linearize subatoms
+linearize (LTNVar (NVLTerm atom subatoms)) =
+  Str (atom, length subatoms) : concatMap linearize subatoms
 linearize _ = error "linearize called on non-atom" -- valid?
 
--- Funktion zum finden einer Kelleradresse 
+-- Funktion zum finden einer Kelleradresse
 -- Eventuell Problem, siehe Zulip
 
-type I' = ((B,T,C,R,P,E),Stack StackElement)
-
-sAdd :: I' -> Argument -> Argument -> Pointer 
-sAdd regs@((b,t,c,r,p,e),stack) symb ATUnify =  sAddHelper regs (stackItemAtLocation e stack) e 
-sAdd ((b,t,Nil,r,p,e),stack) symb ATPush = Nil -- correct?
-sAdd regs@((b,t,c,r,p,e), stack) symb ATPush = sAddHelper regs (stackItemAtLocation (c+3) stack) (c+3) 
+sAdd :: (AddressRegs', MLStack) -> Argument -> Argument -> Pointer
+sAdd regs@((b, t, c, r, p, up, e), stack) symb ATUnify =
+  sAddHelper regs (stackItemAtLocation e stack) e
+-- correct?
+sAdd ((b, t, Nil, r, p, up, e), stack) symb ATPush = Nil
+sAdd regs@((b, t, c, r, p, up, e), stack) symb ATPush =
+  sAddHelper regs (stackItemAtLocation (c + 3) stack) (c + 3)
 sAdd _ _ _ = error "something went wrong in s_add"
 
-sAddHelper :: I' -> StackElement -> Pointer -> Pointer    
-sAddHelper (reg,stack) (CodeArg (ATVar (Var (name, addr)))) currentLoc = addr
-sAddHelper (reg,stack) (CodeArg ATEndEnv) currentLoc = Nil --stand in für stack argument o.ä. => EndEnv Pointer/Stackinhalt
-sAddHelper (reg,stack) item currentLoc = sAddHelper (reg,stack) (stackItemAtLocation (currentLoc+1) stack) currentLoc+1
+sAddHelper :: (AddressRegs', MLStack) -> StackElement -> Pointer -> Pointer
+sAddHelper (reg, stack) (CodeArg (ATVar (Var name addr))) currentLoc = addr
+--stand in für stack argument o.ä. => EndEnv Pointer/Stackinhalt
+sAddHelper (reg, stack) (CodeArg ATEndEnv) currentLoc = Nil
+sAddHelper (reg, stack) item currentLoc =
+  sAddHelper (reg, stack) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
 -- TODO stand in value für richtigen Wert
 
-deref :: Stack StackElement -> (Pointer -> Pointer)  
-deref stack addr = 
-  let addr2 = Pointer 1 -- FIXME stand in 
-  in case (stackItemAtLocation addr stack) of 
-    (CodeArg (ATStr _)) -> addr  
-    (CodeArg (ATVar _)) -> derefVar --stack addr2 
-    _ -> error $ "Deref has to be called on an adress containing an atom or a Variable"  -- set new stack with Var Symb add2; then check add2 for being nil; if yes return addr, if no recurse with add2
+deref :: MLStack -> (Pointer -> Pointer)
+deref stack addr =
+  case stackItemAtLocation addr stack of
+    (CodeArg (ATStr _ _)) -> addr
+    stackItemVar@(CodeArg (ATVar (Var _ addr2))) ->
+      derefVar stack addr addr2 stackItemVar
+    _ -> error "Should have not been reachable: contained neither ATStr or ATVar"
 
--- check first if statement, return addr or flag 
-derefVar :: Stack StackElement -> (Pointer -> (Pointer -> Pointer))  
-derefVar stack addr addr2 = 
-  let stack' =  -- create new stack with item changed
-      stackReplaceAtLocation 
-      (pToInt addr)
-      (CodeArg . ATVar $ Var Symbol addr2) -- FIXME: Wo kommt Symbol her? 
-      stack
-   in 
-     if addr2 == Nil
-       then addr
-       else deref stack' addr2
-derefHelper _ _ _ = error "something went wrong in derefVar" 
+derefVar :: MLStack -> Pointer -> Pointer -> StackElement -> Pointer
+derefVar stack addr addr2 stackItemVar =
+  let stack' = stackReplaceAtLocation (pToInt addr) stackItemVar stack
+   in if isPNil addr2 then addr else deref stack' addr2
+
+derefHelper :: p1 -> p2 -> p3 -> a
+derefHelper _ _ _ = error "something went wrong in derefVar"
 
 -- Aritätsfunktion; can this be called on something other than Var or Atom?
 
-arity :: I -> Pointer -> Arity
-arity (regs, stack) addr = 
-  case arityHelper (stackItemAtLocation addr stack) of 
-    Just x -> x 
-    Nothing -> error $ "arity was called on non Symbol Element"
+arity :: MLStack -> Pointer -> Arity
+arity stack addr =
+  case arityHelper (stackItemAtLocation addr stack) of
+    Just x -> x
+    Nothing -> error "arity was called on non Symbol Element"
 
-arityHelper :: StackElement -> Maybe Int -- maybe this should be pointer 
-arityHelper (CodeArg (ATStr (Str (name, arity)))) = Just arity 
-arityHelper (CodeArg (ATVar (Var _))) = Just 0   
-arityHelper _ = Nothing  
+arityHelper :: StackElement -> Maybe Int -- maybe this should be pointer
+arityHelper (CodeArg (ATStr name arityVal)) = Just arityVal
+arityHelper (CodeArg (ATVar (Var _ _))) = Just 0
+arityHelper _ = Nothing
 
 {--------------------------------------------------------------------
    Helpers; manually tested.
