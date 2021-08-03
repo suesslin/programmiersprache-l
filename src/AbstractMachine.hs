@@ -220,34 +220,34 @@ codeGen parsetree = üb parsetree (Stack [])
   | null pklauseln = üb (TZ (Ziel lits)) $ üb (TPk pklausel) akk
   | otherwise = üb (TP (Programm pklauseln (Ziel lits))) $ üb (TPk pklausel) akk
 -- Üb(Atom.)
-üb (TPk (Pk1 (NVLTerm atom _))) akk = übHead (A atom) akk <> Stack [Return returnL]
+üb (TPk (Pk1 atom)) akk = übHead atom akk <> Stack [Return returnL]
 -- Üb(Atom :- Seq)
-üb (TPk (Pk2 (NVLTerm atom _) (Ziel seq))) akk =
-  let akk' = übHead (A atom) akk
+üb (TPk (Pk2 atom (Ziel seq))) akk =
+  let akk' = übHead atom akk
    in übBody seq akk' <> Stack [Return returnL]
 üb (TZ (Ziel literals)) akk = übBody literals akk <> Stack [Prompt prompt]
 üb _ akk = error $ "Failure in :- Seq translation." ++ show akk
 
-übHead :: Atom -> Zielcode -> Zielcode
-übHead _ _ = undefined
--- übHead (A atomStr) akk = übUnify (linearize terms) akk
-übHead _ _ = error "übHead was called on something else than Atom (NVLTerm)"
+-- übHead(Atom.)
+übHead :: NVLTerm -> (Zielcode -> Zielcode)
+übHead atom@(NVLTerm _ _) = übUnify [linearize atom]
 
 -- TODO: Instead of using let, create separate functions
 übBody :: [Literal] -> Zielcode -> Zielcode
--- Üb_Body([not Atom | Sequenz]): Negation durch Scheitern
-übBody ((Literal False (LTNVar (NVLTerm atom _))) : seq) akk =
-  let akk' =
-        akk
-          <> Stack
-            [ Push' push'' ATNot,
-              Push' push'' (ATAtom $ A atom),
-              Call call,
-              Backtrack backtrackQ',
-              Return' returnL' ATNeg,
-              Backtrack backtrackQ'
-            ]
-   in übBody seq akk'
+-- ÜbBody([not Atom | Sequenz])
+übBody ((Literal False (LTNVar atom)) : seq) akk =
+  übBody
+    seq
+    $ übPush
+      [linearize atom]
+      (akk <> Stack [Push' push'' ATNot, Push' push'' ATChp])
+      <> Stack
+        [ Push' push'' ATEndAtom,
+          Call call,
+          Backtrack backtrackQ',
+          Return' returnL' ATNeg,
+          Backtrack backtrackQ'
+        ]
 -- Üb_Body([Atom | Sequenz])
 übBody ((Literal _ (LTNVar (NVLTerm atom _))) : seq) akk =
   let akk' =
@@ -255,6 +255,20 @@ codeGen parsetree = üb parsetree (Stack [])
    in übBody seq akk'
 übBody [] akk = akk
 übBody _ _ = error "Failure in übBody."
+
+-- -- Üb_Body([not Atom | Sequenz]): Negation durch Scheitern
+-- übBody ((Literal False (LTNVar (NVLTerm atom _))) : seq) akk =
+--   let akk' =
+--         akk
+--           <> Stack
+--             [ Push' push'' ATNot,
+--               Push' push'' (ATAtom $ A atom),
+--               Call call,
+--               Backtrack backtrackQ',
+--               Return' returnL' ATNeg,
+--               Backtrack backtrackQ'
+--             ]
+--    in übBody seq akk'
 
 übPush :: [Linearization] -> Zielcode -> Zielcode
 -- ÜbPush([])
@@ -490,11 +504,10 @@ prompt' reg@((b, t, c, r, p), stack) code
 
 -- Funktion zur Linearisierung von Atomen und Variablen
 
-linearize :: LTerm -> [Linearization]
-linearize (LTNVar (NVLTerm atom [])) = [Linearization atom 0]
-linearize (LTNVar (NVLTerm atom subatoms)) =
-  Linearization atom (length subatoms) : concatMap linearize subatoms
-linearize _ = error "linearize called on non-atom" -- valid?
+-- lin(Atom) -> Linearisierung
+linearize :: NVLTerm -> Linearization
+linearize (NVLTerm atom []) = Linearization atom 0
+linearize (NVLTerm atom subatoms) = Linearization atom $ length subatoms
 
 -- Funktion zum finden einer Kelleradresse
 -- Eventuell Problem, siehe Zulip
@@ -527,9 +540,6 @@ derefVar :: MLStack -> Pointer -> Pointer -> StackElement -> Pointer
 derefVar stack addr addr2 stackItemVar =
   let stack' = stackReplaceAtLocation (pToInt addr) stackItemVar stack
    in if isPNil addr2 then addr else deref stack' addr2
-
-derefHelper :: p1 -> p2 -> p3 -> a
-derefHelper _ _ _ = error "something went wrong in derefVar"
 
 -- Aritätsfunktion; can this be called on something other than Var or Atom?
 
