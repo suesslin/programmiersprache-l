@@ -69,6 +69,8 @@ type Trail = Stack StackElement
 
 --Was den Funktionen übegeben wird
 type RegisterKeller = (FullAddressreg, Speicherbereiche)
+-- Damit die Tests wieder laufen
+type MiniLRegisterKeller = (AddressRegs, MLStack)
 
 newtype Atom = A String deriving (Eq) --So habe ich es benutzt (Marco)
 
@@ -89,14 +91,11 @@ data Argument
   | ATEndAtom
   | ATBegEnv
   | ATEndEnv --data Stack Argument (könnte bspw ENdEnv o.ä. enthalten)
-  | -- |
-    ATVar Variable
+  | ATVar Variable
   | ATVar' Variable' Pointer --Marco's Vorschlag, sehe keinen Vorzug ATVar oder ATStr Symbol zu übergeben. Variable' oder Atom reichen aus.
   | ATPush
   | ATUnify
   deriving (Eq, Show)
-
-type Addressreg = (B, T, C, R, P)
 
 {-------------------------
   Datentypen für ML
@@ -155,8 +154,9 @@ instance Show StackElement where
     ATBegEnv -> "BegEnv"
     ATEndEnv -> "EndEnv"
     ATEndAtom -> "EndAtom"
+    ATPos -> "pos" --Wollen wir das so, brauchen wir dieses Argument überhaupt ? (Marco)
     (ATAtom atom) -> show atom
-    (ATVar var) -> show var --Placeholder hab ich hingeschrieben, weil kb auf non exhaustive Pattern (Marco) würde diese zwei gerne durch meine unten ersetzen :)
+    (ATVar var) -> show var --Placeholder hab ich hingeschrieben, weil kb auf non exhaustive Pattern (Marco) würde dieses gerne durch meins unten ersetzen :)
     (ATStr' atom arity) -> concat ["STR", " ", show atom, "/", show arity] -- Marco's Vorschlag
     (ATVar' variable element) -> concat ["VAR", " ", show variable, " ", show element] -- Marco's Vorschlag
 
@@ -189,6 +189,7 @@ data Command
 
 instance Show Command where
   show (Unify fkt atom) = "unify" ++ " " ++ show atom
+  show (Unify' fkt arg) = "unify" ++ " " ++ show arg
   show (Push fkt atom) = "push" ++ " " ++ show atom
   show (Push' fkt arg) = "push" ++ " " ++ show arg
   show (Call _) = "call"
@@ -216,6 +217,14 @@ codeGen parsetree = üb parsetree (Stack [])
 
 -- TODO: Check if commands are added in the right order (Stack is LIFO/FILO)
 üb :: Tree -> Zielcode -> Zielcode
+--ML
+--Üb(VarSeq, :- Sequenz.)
+üb (TP (Programm' [] (varSeq, Ziel literals))) akk = übBody literals  (übEnv (map V varSeq) akk <> Stack []) <> Stack [] -- In den rechten Stack kommt Prompt für ML, In den linken Stack kommt push BegEnv für ML
+--Üb(VarSeq, Atom :- Sequenz.) 
+üb (TP (Programm' ((varSeq, Pk2 atom (Ziel literals)):rest) ziel)) akk = üb (TP (Programm' rest ziel)) (übBody literals  (übHead atom (übEnv (map V varSeq) akk <> Stack [])) <> Stack []) --In den linken Stack kommt push BegEnv (für ML) rein, In den rechten Stack kommt return pos für ML rein
+--Üb(VarSeq, Atom.)  
+üb (TP (Programm' ((varSeq, Pk1 atom):rest) ziel)) akk = üb (TP (Programm' rest ziel)) (übHead atom  (übEnv (map V varSeq) akk <> Stack []) <> Stack []) --In den linken Stack kommt push BegEnv (für ML) rein, In den rechten Stack kommt return pos für ML rein
+--MiniL/GroundL
 -- If there are no Programmklauseln
 üb (TP (Programm [] (Ziel lits))) akk = üb (TZ (Ziel lits)) akk
 -- If there are Programmklauseln
@@ -260,12 +269,11 @@ codeGen parsetree = üb parsetree (Stack [])
 übBody [] akk = akk
 übBody _ _ = error "Failure in übBody."
 
-übEnv :: [Atom] -> Stack Command -> Stack Command
-übEnv [] akk = akk
+übEnv :: [Variable'] -> Stack Command -> Stack Command
+übEnv [] akk = akk <> Stack [] --  In den Stack kommt push ATEndEnv (Grund:Push für ML fehlt)
 -- ÜbEnv([Symbol|Sequenz])
-übEnv ((A sym) : seq) akk =
-  übEnv seq (akk <> Stack [Push' push'' (ATVar' (V sym) Nil)])
-    <> Stack [Push' push'' ATEndEnv]
+übEnv (var@(V sym) : seq) akk =
+  übEnv seq (akk <> Stack []) -- In den Stack kommt push (ATVar' var Nil) (Grund: siehe oben)
 
 -- -- Üb_Body([not Atom | Sequenz]): Negation durch Scheitern
 -- übBody ((Literal False (LTNVar (NVLTerm atom _))) : seq) akk =
@@ -396,7 +404,7 @@ call ((b, t, c, r, p), stack) code =
 
 call'' :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack) --maybe use full addressreg?
 call'' ((b, t, c, r, p), stack) code =
-  if stackItemAtLocation c stack == CodeAddress Nil 
+  if stackItemAtLocation c stack == CodeAddress Nil
     then ((True, t, c, r, p +<- 1), stack)
     else
       let p' = unsafePointerFromStackAtLocation (pToInt c) stack
@@ -433,7 +441,7 @@ returnL'' ATPos regs = returnLPos regs
 returnL'' _ _ = error "returnL resulted in an error. Possible use of wrong argument."
 
 returnLPos :: (AddressRegs', MLStack) -> (AddressRegs', MLStack)
-returnLPos ((b, t, c, r, p, up, e), stack) = 
+returnLPos ((b, t, c, r, p, up, e), stack) =
   let p' = unsafePointerFromStackAtLocation (pToInt (r +<- 1)) stack
       e' =  unsafePointerFromStackAtLocation (pToInt (r +<- 2)) stack
   in if stackItemAtLocation r stack /= CodeAddress Nil
@@ -605,23 +613,23 @@ arityHelper _ = Nothing
 -- Displayfunktion für Prompt; untested 
 
 display :: MLStack -> IO ()
-display stack@(Stack content) = 
+display stack@(Stack content) =
   let stackpart = Stack (takeWhile (\x -> x /= CodeArg ATEndEnv) content) -- Erstelle einen Substack bis zum Ende des Env
   in putStrLn $ displayHelper stackpart stack 1 "" -- Intialisierung des Stacks mit relativer Adresse 1 und leerem String 
 
-displayHelper :: MLStack -> MLStack -> Pointer -> String -> String  
-displayHelper stackpart orgstack addr str = 
+displayHelper :: MLStack -> MLStack -> Pointer -> String -> String
+displayHelper stackpart orgstack addr str =
   case stackItemAtLocation addr stackpart of -- Überprüfung des Inhalts an Punkt addr
     CodeArg (ATVar' _ _) -> let str' = str ++ displayTerm orgstack (deref orgstack addr) -- neuer Teil des Strings  
                             in displayHelper stackpart orgstack (addr+1) str' -- rekursives Weiterschreiben    
-    _ -> displayHelper stackpart orgstack (addr+1) str  
+    _ -> displayHelper stackpart orgstack (addr+1) str
 
-displayTerm :: MLStack -> Pointer -> String  
-displayTerm stack addr = 
-  case stackItemAtLocation (deref stack addr) stack of 
-    CodeArg (ATVar' symb Nil) -> show symb  
-    CodeArg (ATStr symb arity) -> show arity ++ "( " ++ displayTerm stack (deref stack addr + 1) ++ ") " 
-    _ -> "" 
+displayTerm :: MLStack -> Pointer -> String
+displayTerm stack addr =
+  case stackItemAtLocation (deref stack addr) stack of
+    CodeArg (ATVar' symb Nil) -> show symb
+    CodeArg (ATStr symb arity) -> show arity ++ "( " ++ displayTerm stack (deref stack addr + 1) ++ ") "
+    _ -> ""
 
 {--------------------------------------------------------------------
    Helpers; manually tested.
@@ -804,10 +812,6 @@ getArity :: StackElement -> Int
 getArity (CodeArg (ATStr' _ arity)) = arity
 getArity (CodeArg (ATVar' _ _)) = 0
 getArity _ = error "What"
-
---Dummy sAdd for no errors
---sAdd :: Argument -> t0 -> RegisterKeller -> Pointer
---sAdd = error "not implemented"
 
 unification :: Pointer -> Pointer -> RegisterKeller -> Bool
 unification add1 add2 all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) = undefined

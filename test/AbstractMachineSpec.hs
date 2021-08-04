@@ -58,13 +58,13 @@ code' = codeGen (parse $ tokenize ":- p,r.")
 initStack :: Stack StackElement
 initStack = stackNewEmpty
 
-initial :: I -- register in intial state
+initial :: MiniLRegisterKeller -- register in intial state
 initial = ((False, Pointer (-1), Nil, Nil, cGoal code), initStack)
 
-firstreg :: I -- register after first push
+firstreg :: MiniLRegisterKeller -- register after first push
 firstreg = ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress (Pointer 0), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
 
-subsequentreg :: I -- register after some calls p. 131 top
+subsequentreg :: MiniLRegisterKeller -- register after some calls p. 131 top
 subsequentreg =
   ( (False, Pointer 11, Pointer 8, Pointer 9, Pointer 14),
     Stack
