@@ -81,6 +81,7 @@ type Arity = Int
 data Argument
   = ATNot
   | ATNeg
+  | ATPos
   | ATAtom Atom
   | ATStr Symbol Arity -- Für push (GroundL)
   | ATStr' Atom Arity -- Marco's Vorschlag
@@ -391,6 +392,22 @@ call ((b, t, c, r, p), stack) code =
               stack
        in ((b, t, c, r, p'), stack')
 
+-- ML call Befehl 
+
+call'' :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack) --maybe use full addressreg?
+call'' ((b, t, c, r, p), stack) code =
+  if stackItemAtLocation c stack == CodeAddress Nil 
+    then ((True, t, c, r, p +<- 1), stack)
+    else
+      let p' = unsafePointerFromStackAtLocation (pToInt c) stack
+          stack' =
+            stackWriteToLocation
+              c
+              (CodeAddress (cNext code (fromJust . stackItemToInt $ stackItemAtLocation c stack)))
+              stack
+       in ((b, t, c, r, p'), stack')
+
+
 -- possible problem; nur logisches entkellern, untested
 returnL :: (AddressRegs, MLStack) -> (AddressRegs, MLStack)
 returnL ((b, t, c, r, p), stack) =
@@ -407,6 +424,28 @@ returnL ((b, t, c, r, p), stack) =
 --       "Irgendwas " ++ show stack ++ "\nr:" ++ show r ++ "\n\nr':"
 --         ++ show (stackItemToInt $ stackItemAtLocation r stack)
 --         ++ "\n\n"
+
+-- Return für ML 
+
+returnL'' :: Argument -> (AddressRegs', MLStack) -> (AddressRegs', MLStack) -- maybe use full addressreg?
+returnL'' ATNeg regs = returnLNeg regs
+returnL'' ATPos regs = returnLPos regs
+returnL'' _ _ = error "returnL resulted in an error. Possible use of wrong argument."
+
+returnLPos :: (AddressRegs', MLStack) -> (AddressRegs', MLStack)
+returnLPos ((b, t, c, r, p, up, e), stack) = 
+  let p' = unsafePointerFromStackAtLocation (pToInt (r +<- 1)) stack
+      e' =  unsafePointerFromStackAtLocation (pToInt (r +<- 2)) stack
+  in if stackItemAtLocation r stack /= CodeAddress Nil
+        then
+          ( (b, t, c, fromJust (stackItemToInt $ stackItemAtLocation r stack) +<- 1, p', up, e'),
+            stack
+          )
+        else ((b, t, c, r, p', up, e'), stack)
+
+returnLNeg :: (AddressRegs', MLStack) -> (AddressRegs', MLStack)
+returnLNeg  ((b, t, c, r, p, up, e), stack) =
+  ((False, t, c, r, p, up, e), stackWriteToLocation (r -<- 1) (CodeAddress Nil) stack)
 
 -- Return für Negation durch Scheitern
 returnL' :: Argument -> (AddressRegs, MLStack) -> (AddressRegs, MLStack)
@@ -523,8 +562,6 @@ linearize (NVLTerm atom subatoms) = Linearization atom $ length subatoms
 -- Funktion zum finden einer Kelleradresse
 -- Eventuell Problem, siehe Zulip
 
-type I' = ((B, T, C, R, P, E), Stack StackElement) -- Kann entfernt werden oder ? (Marco)
-
 sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
 sAdd all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) symb ATUnify = sAddHelper all (stackItemAtLocation e stack) e
 sAdd all@(addressreg@(p, t, Nil, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) symb ATPush = Nil -- correct?
@@ -564,6 +601,27 @@ arityHelper :: StackElement -> Maybe Int -- maybe this should be pointer
 arityHelper (CodeArg (ATStr name arityVal)) = Just arityVal
 arityHelper (CodeArg (ATVar (Var _ _))) = Just 0
 arityHelper _ = Nothing
+
+-- Displayfunktion für Prompt; untested 
+
+display :: MLStack -> IO ()
+display stack@(Stack content) = 
+  let stackpart = Stack (takeWhile (\x -> x /= CodeArg ATEndEnv) content) -- Erstelle einen Substack bis zum Ende des Env
+  in putStrLn $ displayHelper stackpart stack 1 "" -- Intialisierung des Stacks mit relativer Adresse 1 und leerem String 
+
+displayHelper :: MLStack -> MLStack -> Pointer -> String -> String  
+displayHelper stackpart orgstack addr str = 
+  case stackItemAtLocation addr stackpart of -- Überprüfung des Inhalts an Punkt addr
+    CodeArg (ATVar' _ _) -> let str' = str ++ displayTerm orgstack (deref orgstack addr) -- neuer Teil des Strings  
+                            in displayHelper stackpart orgstack (addr+1) str' -- rekursives Weiterschreiben    
+    _ -> displayHelper stackpart orgstack (addr+1) str  
+
+displayTerm :: MLStack -> Pointer -> String  
+displayTerm stack addr = 
+  case stackItemAtLocation (deref stack addr) stack of 
+    CodeArg (ATVar' symb Nil) -> show symb  
+    CodeArg (ATStr symb arity) -> show arity ++ "( " ++ displayTerm stack (deref stack addr + 1) ++ ") " 
+    _ -> "" 
 
 {--------------------------------------------------------------------
    Helpers; manually tested.
