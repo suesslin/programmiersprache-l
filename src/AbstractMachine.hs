@@ -102,6 +102,8 @@ type Addressreg = (B, T, C, R, P)
  ----------------------------}
 data Linearization = Linearization String Arity deriving (Eq, Show)
 
+data Exp = ExpLin Linearization | ExpSym Symbol
+
 -- TODO: Consider merging them in a "Symbol" type
 newtype Atom' = Str Linearization deriving (Eq)
 
@@ -230,7 +232,7 @@ codeGen parsetree = üb parsetree (Stack [])
 
 -- übHead(Atom.)
 übHead :: NVLTerm -> (Zielcode -> Zielcode)
-übHead atom@(NVLTerm _ _) = übUnify [linearize atom]
+übHead atom@(NVLTerm _ _) = übUnify [ExpLin $ linearize atom]
 
 -- TODO: Instead of using let, create separate functions
 übBody :: [Literal] -> Zielcode -> Zielcode
@@ -239,7 +241,7 @@ codeGen parsetree = üb parsetree (Stack [])
   übBody
     seq
     $ übPush
-      [linearize atom]
+      [ExpLin $ linearize atom]
       (akk <> Stack [Push' push'' ATNot, Push' push'' ATChp])
       <> Stack
         [ Push' push'' ATEndAtom,
@@ -249,12 +251,20 @@ codeGen parsetree = üb parsetree (Stack [])
           Backtrack backtrackQ'
         ]
 -- Üb_Body([Atom | Sequenz])
-übBody ((Literal _ (LTNVar (NVLTerm atom _))) : seq) akk =
-  let akk' =
-        akk <> Stack [Push' push'' (ATAtom $ A atom), Call call, Backtrack backtrackQ']
-   in übBody seq akk'
+übBody ((Literal _ (LTNVar atom)) : seq) akk =
+  übBody
+    seq
+    $ übPush [ExpLin $ linearize atom] (akk <> Stack [Push' push'' ATChp])
+      <> Stack [Push' push'' ATEndAtom, Call call, Backtrack backtrackQ']
 übBody [] akk = akk
 übBody _ _ = error "Failure in übBody."
+
+übEnv :: [Atom] -> Stack Command -> Stack Command
+übEnv [] akk = akk
+-- ÜbEnv([Symbol|Sequenz])
+übEnv ((A sym) : seq) akk =
+  übEnv seq (akk <> Stack [Push' push'' (ATVar' (V sym) Nil)])
+    <> Stack [Push' push'' ATEndEnv]
 
 -- -- Üb_Body([not Atom | Sequenz]): Negation durch Scheitern
 -- übBody ((Literal False (LTNVar (NVLTerm atom _))) : seq) akk =
@@ -270,24 +280,25 @@ codeGen parsetree = üb parsetree (Stack [])
 --             ]
 --    in übBody seq akk'
 
-übPush :: [Linearization] -> Zielcode -> Zielcode
+übPush :: [Exp] -> Zielcode -> Zielcode
 -- ÜbPush([])
 übPush [] akk = akk
+übPush [ExpSym (A sym)] akk = akk <> Stack [Push' push'' (ATVar' (V sym) Nil)]
 -- ÜbPush(Symbol/Arity)
-übPush [Linearization sym arity] akk = akk <> Stack [Push' push'' $ ATStr (A sym) arity]
+übPush [ExpLin (Linearization sym arity)] akk =
+  akk <> Stack [Push' push'' $ ATStr (A sym) arity]
 -- ÜbPush([Exp | Sequenz])
-übPush (lin : seq) akk = übPush seq $ übPush [lin] akk
+übPush (exp : seq) akk = übPush seq $ übPush [exp] akk
 
--- TODO: Instead of matching Linearization:seq and Linearization:[] (Exp)
---       consider using a datatype Exp that covers ExpLin and ExpLins [Linearization]
-übUnify :: [Linearization] -> Zielcode -> Zielcode
+übUnify :: [Exp] -> Zielcode -> Zielcode
 -- übUnify(Symbol/Arity)
-übUnify [Linearization sym arity] akk =
-  akk
-    <> Stack [Unify' unify' (ATStr (A sym) arity)]
+übUnify [ExpLin (Linearization sym arity)] akk =
+  akk <> Stack [Unify' unify' (ATStr (A sym) arity)]
+übUnify [ExpSym (A sym)] akk =
+  akk <> Stack [Unify' unify' (ATVar' (V sym) Nil)]
 -- übUnify([Exp | Sequenz])
-übUnify (lin : seq) akk =
-  übUnify seq $ übUnify [lin] akk <> Stack [Backtrack backtrackQ']
+übUnify (exp : seq) akk =
+  übUnify seq $ übUnify [exp] akk <> Stack [Backtrack backtrackQ']
 -- übUnify([])
 übUnify [] akk = akk
 
