@@ -80,6 +80,7 @@ type Arity = Int
 data Argument
   = ATNot
   | ATNeg
+  | ATPos 
   | ATAtom Atom
   | ATStr Symbol Arity -- Für push (GroundL)
   | ATStr' Atom Arity -- Marco's Vorschlag
@@ -147,6 +148,7 @@ instance Show StackElement where
     (ATStr sym arityVal) -> show sym ++ "/" ++ show arityVal
     ATNot -> "not"
     ATNeg -> "neg"
+    ATPos -> "pos"
     ATPush -> "push"
     ATUnify -> "unify"
     ATChp -> "chp"
@@ -184,6 +186,13 @@ data Command
   | Backtrack ((AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack))
   | Return' (Argument -> (AddressRegs, MLStack) -> (AddressRegs, MLStack)) Argument
   | Return ((AddressRegs, MLStack) -> (AddressRegs, MLStack))
+  --- ML Commands 
+  | Unify'' (Argument -> RegisterKeller -> RegisterKeller) Argument 
+  | Push'' (Argument -> (RegisterKeller -> Zielcode -> RegisterKeller)) Argument  
+  | Call'' (RegisterKeller -> Zielcode -> RegisterKeller)
+  | Return'' (Argument -> (RegisterKeller -> Zielcode -> RegisterKeller)) Argument 
+  | Backtrack'' (RegisterKeller -> Zielcode -> RegisterKeller)
+  | Prompt'' (RegisterKeller -> Zielcode -> RegisterKeller)
 
 instance Show Command where
   show (Unify fkt atom) = "unify" ++ " " ++ show atom
@@ -195,6 +204,12 @@ instance Show Command where
   show (Backtrack _) = "backtrack?"
   show (Return _) = "return"
   show (Return' _ arg) = "return'" ++ show arg
+  show (Unify'' _ _) = "unifyML"
+  show (Push'' _ _) = "pushML"
+  show (Call'' _) = "callML"
+  show (Return'' _ _) = "returnML"
+  show (Backtrack'' _) = "backtrackML"
+  show (Prompt'' _) = "promptML"
 
 instance Eq Command where
   (==) (Unify _ atom1) (Unify _ atom2) = atom1 == atom2
@@ -204,7 +219,13 @@ instance Eq Command where
   (==) (Prompt _) (Prompt _) = True
   (==) (Backtrack _) (Backtrack _) = True
   (==) (Return _) (Return _) = True
-  (==) _ _ = False
+  (==) (Unify'' _ expr1) (Unify'' _ expr2) = expr1 == expr2 
+  (==) (Push'' _ expr1) (Push'' _ expr2) = expr1 == expr2
+  (==) (Call'' _) (Call'' _) = True 
+  (==) (Backtrack'' _) (Backtrack'' _) = True
+  (==) (Return'' _ arg1) (Return'' _ arg2) = arg1 == arg2   
+  (==) (Prompt'' _) (Prompt'' _) = True 
+  (==) _ _ = False 
 
 {----------------------------------------------------------
    MiniL; Üb credit: Lukas; angepasst
@@ -300,9 +321,9 @@ codeGen parsetree = üb parsetree (Stack [])
 übUnify :: [Exp] -> Zielcode -> Zielcode
 -- übUnify(Symbol/Arity)
 übUnify [ExpLin (Linearization sym arity)] akk =
-  akk <> Stack [Unify' unify' (ATStr (A sym) arity)]
+  akk <> Stack [Unify'' unify'' (ATStr (A sym) arity)]
 übUnify [ExpSym (A sym)] akk =
-  akk <> Stack [Unify' unify' (ATVar' (V sym) Nil)]
+  akk <> Stack [Unify'' unify'' (ATVar' (V sym) Nil)]
 -- übUnify([Exp | Sequenz])
 übUnify (exp : seq) akk =
   übUnify seq $ übUnify [exp] akk <> Stack [Backtrack backtrackQ']
@@ -310,7 +331,7 @@ codeGen parsetree = üb parsetree (Stack [])
 übUnify [] akk = akk
 
 {--------------------------------------------------------------
-   InStruktionen
+   Instruktionen
  ---------------------------------------------------------------}
 
 push :: Atom -> (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
@@ -385,7 +406,7 @@ unify atom ((_, t, c, r, p), stack) =
 -- TODO: Auseinanderziehen
 call :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 call ((b, t, c, r, p), stack) code =
-  if stackItemAtLocation (pToInt c) stack == CodeAddress Nil -- TODO,actually just undefinied
+  if stackItemAtLocation (pToInt c) stack == CodeAddress Nil 
     then ((True, t, c, r, addPi p 1), stack)
     else
       let p' = unsafePointerFromStackAtLocation (pToInt c) stack
@@ -397,6 +418,21 @@ call ((b, t, c, r, p), stack) code =
               )
               stack
        in ((b, t, c, r, p'), stack')
+
+-- ML call Befehl 
+
+call'' :: RegisterKeller -> Zielcode -> RegisterKeller
+call'' ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) code =
+  if stackItemAtLocation c stack == CodeAddress Nil
+    then ((True, t, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac), stacks)
+    else
+      let p' = unsafePointerFromStackAtLocation (pToInt c) stack
+          stacks' =
+            (stackWriteToLocation
+              c
+              (CodeAddress (cNext code (fromJust . stackItemToInt $ stackItemAtLocation c stack)))
+              stack, us, trail)
+       in ((b, t, c, r, p', up, e, ut, tt, pc, sc, ac), stacks')
 
 -- possible problem; nur logisches entkellern, untested
 returnL :: (AddressRegs, MLStack) -> (AddressRegs, MLStack)
@@ -414,6 +450,28 @@ returnL ((b, t, c, r, p), stack) =
 --       "Irgendwas " ++ show stack ++ "\nr:" ++ show r ++ "\n\nr':"
 --         ++ show (stackItemToInt $ stackItemAtLocation r stack)
 --         ++ "\n\n"
+
+-- Return für ML 
+
+returnL'' :: Argument -> RegisterKeller -> RegisterKeller 
+returnL'' ATNeg regkeller = returnLNeg regkeller
+returnL'' ATPos regkeller = returnLPos regkeller
+returnL'' _ _ = error "returnL resulted in an error. Possible use of wrong argument."
+
+returnLPos :: RegisterKeller -> RegisterKeller
+returnLPos ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
+  let p' = unsafePointerFromStackAtLocation (pToInt (r +<- 1)) stack
+      e' =  unsafePointerFromStackAtLocation (pToInt (r +<- 2)) stack
+  in if stackItemAtLocation r stack /= CodeAddress Nil
+        then
+          ( (b, t, c, fromJust (stackItemToInt $ stackItemAtLocation r stack) +<- 1, p', up, e', ut, tt, pc, sc, ac),
+            (stack, us, trail)
+          )
+        else ((b, t, c, r, p', up, e', ut, tt, pc, sc, ac), (stack, us, trail))
+
+returnLNeg :: RegisterKeller -> RegisterKeller
+returnLNeg  ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
+  ((False, t, c, r, p, up, e, up, tt, pc, sc, ac), (stackWriteToLocation (r -<- 1) (CodeAddress Nil) stack, us, trail))
 
 -- Return für Negation durch Scheitern
 returnL' :: Argument -> (AddressRegs, MLStack) -> (AddressRegs, MLStack)
@@ -497,24 +555,28 @@ backtrackCpNil' ((b, t, c, r, _), stack) code
     ((b, t, c, r, cLast code), stack)
 
 -- Backtrack? für GroundL
+-- TODO ML Backtrack
 
--- TODO: Discuss how else to solve this: Since prompt ist the last inStruction, perhaps --       impurely through main?
-prompt :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack) -- greedy prompt without IO, temporary solution
+-- Prompt für MiniL, ohne IO
+
+prompt :: (AddressRegs, MLStack) -> Zielcode -> (AddressRegs, MLStack)
 prompt reg@((b, t, c, r, p), stack) code =
   if b
-    then ((b, t, c, r, Nil), stack) -- should be nil or undefinied, fix by using stack?
+    then ((b, t, c, r, Nil), stack) 
     else ((True, t, c, r, addPi p (-1)), stack)
 
-prompt' :: (AddressRegs, MLStack) -> Zielcode -> IO ()
-prompt' reg@((b, t, c, r, p), stack) code
-  | b =
-    putStrLn "no (more) solutions."
-  | otherwise = do
-    putStrLn "yes. more?"
-    answer <- getLine
-    if answer == ";"
-      then undefined --evalFromPrompt ((True, t,c,r,p-1), stack) code TODO!!
-      else putStrLn "Wrong input, aborting."
+-- Prompt für ML 
+
+prompt'' :: RegisterKeller -> Zielcode -> IO ()
+prompt'' ((b,t,c,r,p,up,e,ut,tt,pc,sc,ac), (stack,us,trail)) code 
+  | b = putStrLn "no (more) solutions"
+  | otherwise = do 
+      putStrLn $ display stack 
+      putStrLn "more?"
+      answer <- getLine 
+      if answer == ";"
+        then callFromPrompt ((True,t,c,r,p -<- 1,up,e,ut,tt,pc,sc,ac), (stack,us,trail)) code
+        else print "Wrong input, aborting."
 
 {----------------------------------------------------------------------
   Hilfsfunktionen für ML
@@ -528,14 +590,12 @@ linearize (NVLTerm atom []) = Linearization atom 0
 linearize (NVLTerm atom subatoms) = Linearization atom $ length subatoms
 
 -- Funktion zum finden einer Kelleradresse
--- Eventuell Problem, siehe Zulip
-
-type I' = ((B, T, C, R, P, E), Stack StackElement) -- Kann entfernt werden oder ? (Marco)
+-- TODO Eventuell Problem, siehe Zulip; maybe refactor using takeWhile
 
 sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
-sAdd all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) symb ATUnify = sAddHelper all (stackItemAtLocation e stack) e
-sAdd all@(addressreg@(p, t, Nil, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) symb ATPush = Nil -- correct?
-sAdd all@(addressreg@(p, t, c, r, e, up, ut, tt, b, pc, sc, ac), (stack, us, trail)) symb ATPush = sAddHelper all (stackItemAtLocation (c + 3) stack) (c + 3)
+sAdd all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) symb ATUnify = sAddHelper all (stackItemAtLocation e stack) e
+sAdd all@(addressreg@(b, t, Nil, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) symb ATPush = Nil -- TODO correct?
+sAdd all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) symb ATPush = sAddHelper all (stackItemAtLocation (c + 3) stack) (c + 3)
 sAdd _ _ _ = error "something went wrong in s_add"
 
 sAddHelper :: RegisterKeller -> StackElement -> Pointer -> Pointer
@@ -544,7 +604,6 @@ sAddHelper (reg, stacks@(stack, us, trail)) (CodeArg ATEndEnv) currentLoc = Nil 
 sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
--- TODO stand in value für richtigen Wert
 
 deref :: MLStack -> (Pointer -> Pointer)
 deref stack addr =
@@ -559,7 +618,7 @@ derefVar stack addr addr2 stackItemVar =
   let stack' = stackReplaceAtLocation (pToInt addr) stackItemVar stack
    in if isPNil addr2 then addr else deref stack' addr2
 
--- Aritätsfunktion; can this be called on something other than Var or Atom?
+-- Aritätsfunktion; gibt Arität eines Atoms zurück
 
 arity :: MLStack -> Pointer -> Arity
 arity stack addr =
@@ -567,13 +626,35 @@ arity stack addr =
     Just x -> x
     Nothing -> error "arity was called on non Symbol Element"
 
-arityHelper :: StackElement -> Maybe Int -- maybe this should be pointer
+arityHelper :: StackElement -> Maybe Int -- TODO maybe this should be pointer
 arityHelper (CodeArg (ATStr name arityVal)) = Just arityVal
-arityHelper (CodeArg (ATVar (Var _ _))) = Just 0
+--arityHelper (CodeArg (ATVar (Var _ _))) = Just 0 TODO Funktion wird nur für Atome definiert?
 arityHelper _ = Nothing
 
+-- Displayfunktion für Prompt; untested 
+
+display :: MLStack -> String 
+display stack@(Stack content) =
+  let stackpart = Stack (takeWhile (\x -> x /= CodeArg ATEndEnv) content) -- Erstelle einen Substack bis zum Ende des Env
+  in displayHelper stackpart stack 1 "" -- Intialisierung des Stacks mit relativer Adresse 1 und leerem String 
+
+displayHelper :: MLStack -> MLStack -> Pointer -> String -> String
+displayHelper stackpart orgstack addr str =
+  case stackItemAtLocation addr stackpart of -- Überprüfung des Inhalts an Punkt addr
+    CodeArg (ATVar' _ _) -> let str' = str ++ displayTerm orgstack (deref orgstack addr) -- neuer Teil des Strings  
+                            in displayHelper stackpart orgstack (addr+1) str' -- rekursives Weiterschreiben    
+    _ -> displayHelper stackpart orgstack (addr+1) str
+
+displayTerm :: MLStack -> Pointer -> String
+displayTerm stack addr =
+  case stackItemAtLocation (deref stack addr) stack of
+    CodeArg (ATVar' symb Nil) -> show symb
+    CodeArg (ATStr symb arity) -> show arity ++ "( " ++ displayTerm stack (deref stack addr + 1) ++ ") "
+    _ -> ""
+
+
 {--------------------------------------------------------------------
-   Helpers; manually tested.
+   Helpers; manually tested; changed for ML.
  --------------------------------------------------------------------}
 
 transformN :: [Command] -> Int -> Stack String
@@ -616,31 +697,34 @@ callZielcode (Call _) reg code = call reg code
 callZielcode (Backtrack _) reg code = backtrackQ reg code
 callZielcode (Return _) reg _ = returnL reg
 callZielcode (Return' _ arg) reg _ = returnL' arg reg
-callZielcode (Prompt _) reg code = prompt reg code
+callZielcode (Prompt _) reg code = prompt reg code 
+callZielcode _ _ _ = error "MiniL Zielcode-Evaluator was called on non MiniL Function"
 
-{- callPrompt':: Command -> (AddressRegs, MLStack) -> Zielcode -> IO()
-callPrompt' (Prompt' name inst) reg code = prompt' reg code
-callPrompt' _ _ _ = error $ "eval prompt failed." -}
+callZielcode'' :: Command -> RegisterKeller -> Zielcode -> RegisterKeller
+callZielcode'' (Prompt'' _) regkeller code = regkeller -- Prompt has to be called in Main (?) TODO 
+callZielcode'' (Push'' _ arg) regkeller code = undefined --push'' arg regkeller code TODO push für ML 
+callZielcode'' (Unify'' _ arg) regkeller _ = unify'' arg regkeller 
+callZielcode'' (Backtrack'' _) regkeller code = undefined  -- TODO ML Backtrack 
+callZielcode'' (Return'' _ arg) regkeller code = returnL'' arg regkeller
+callZielcode'' (Call'' _) regkeller code = call'' regkeller code 
+callZielcode'' _ _ _ = error "ML Zielcode-Evaluator was called on non ML Function"
 
---TODO, for prompt implementation
-{- callFromPrompt :: (AddressRegs, MLStack) -> Zielcode -> IO()
-callFromPrompt reg (Stack (firstfkt:rest)) = do
-   putStrLn "reeval"
-   let newreg = callZielcode firstfkt reg (Stack rest)
-   prompt newreg code  -}
+-- this should be used for calling prompt'' in main 
+callPrompt'':: Command -> RegisterKeller -> Zielcode -> IO()
+callPrompt'' (Prompt'' _) regsStacks code = prompt'' regsStacks code
+callPrompt'' _ _ _ = error "Calling prompt resulted in an error." 
 
-runner :: (AddressRegs, MLStack) -> Zielcode -> Zielcode -> (AddressRegs, MLStack)
-runner reg (Stack (firstfkt : rest)) code = runner (callZielcode firstfkt reg code) (Stack rest) code
-runner reg (Stack []) code = reg
+-- use this for backtracking after reaching the first prompt
+callFromPrompt :: RegisterKeller -> Zielcode -> IO()
+callFromPrompt regkeller code = do 
+  putStrLn "reeval..."
+  let newregstack = runner regkeller code code 
+   in prompt'' newregstack code 
 
--- code :: Zielcode
--- code = codeGen (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
-
--- initial :: (AddressRegs, MLStack)
--- initial = ((False, Pointer (-1), Nil, Nil, cGoal code), initStack)
-
--- initStack :: Stack StackElement
--- initStack = stackNewEmpty
+runner:: RegisterKeller -> Zielcode -> Zielcode -> RegisterKeller
+runner regkeller (Stack [firstfkt]) code = callZielcode'' firstfkt regkeller code 
+runner regkeller (Stack (firstfkt : rest)) code = runner (callZielcode'' firstfkt regkeller code) (Stack rest) code 
+runner regkeller (Stack []) code = error "Runner called on empty Zielcode."
 
 {--------------------------------------------------------------------
               ML Unify Hilffunktionen
@@ -672,8 +756,8 @@ saveAcUpQ all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
 {--------------------------------------------------------------------
               ML Unify
 ---------------------------------------------------------------------}
-unify' :: Argument -> RegisterKeller -> RegisterKeller
-unify' arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
+unify'' :: Argument -> RegisterKeller -> RegisterKeller
+unify'' arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   | pc >= 1 = unifyPushModus arg all
   | otherwise = unifyNonPushModus arg all
 
