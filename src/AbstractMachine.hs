@@ -56,7 +56,7 @@ type AddressRegs'' = (B, T, C, R, P, Up, E, Ut, Tt, Pc, Sc, Ac)
 type Zielcode = Stack Command
 
 --Speicherbereiche
-type Speicherbereiche = (MLStack, Us, Trail) --Muss erweitert werden mit Env, hab ich aber bisher nicht gebraucht (Marco)
+type Speicherbereiche = (MLStack, Us, Trail) -- Muss erweitert werden mit Env, hab ich aber bisher nicht gebraucht (Marco)
 
 type MLStack = Stack StackElement
 
@@ -67,6 +67,7 @@ type Us = Stack StackElement
 type Trail = Stack StackElement
 
 --Was den Funktionen übegeben wird
+
 type RegisterKeller = (AddressRegs'', Speicherbereiche)
 
 newtype Atom = A String deriving (Eq) --So habe ich es benutzt (Marco)
@@ -74,6 +75,14 @@ newtype Atom = A String deriving (Eq) --So habe ich es benutzt (Marco)
 newtype Variable' = V String deriving (Eq) --So habe ich es benutzt (Marco)
 
 type Symbol = Atom
+
+--- Suggestion for merging types (Max)
+
+--data Symbol = Symb String deriving (Show, Eq) [Symbol is the name of an atom, ie "p" or of a variable, ie "X"] 
+--data Atom = A Symbol Arity deriving (Show, Eq)
+--data Variable = V Symbol Pointer deriving (Show, Eq) 
+--data Expression = AExpr Atom | VExpr Variable deriving (Show, Eq)
+-- => ATExpr is possible, as well as ATAtom and ATVar 
 
 type Arity = Int
 
@@ -94,8 +103,6 @@ data Argument
   | ATPush
   | ATUnify
   deriving (Eq, Show)
-
-type Addressreg = (B, T, C, R, P)
 
 {-------------------------
   Datentypen für ML
@@ -118,9 +125,9 @@ instance Show Variable where
 instance Show Variable' where -- Marco's Vorschlag
   show (V str) = str
 
-{-
+{----------------------------------------
   Bestehende Datentypen
- -}
+ -----------------------------------------}
 
 --data Stack Argument (könnte bspw ENdEnv o.ä. enthalten)
 
