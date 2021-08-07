@@ -83,3 +83,7 @@ stackTake n (Stack a) = Stack $ take n a
 
 stackDrop :: Int -> Stack a -> Stack a
 stackDrop n (Stack a) = Stack $ drop n a
+
+stackEmpty :: Stack a -> Bool
+stackEmpty (Stack []) = True
+stackEmpty _ = False
