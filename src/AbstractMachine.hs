@@ -348,9 +348,14 @@ push ATEndAtom ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) 
       trail
     )
   )
-push (ATEndEnv _) ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
-  -- TODO: Implement. Script p. 152
-  undefined
+push (ATEndEnv n) (regs@(_, t, c, _, p, _, _, _, _, _, _, _), (stack, us, trail)) _ =
+  ( regs,
+    ( stackReplaceAtLocation (pToInt $ c +<- 5) (CodeAddress t) $
+        stackReplaceAtLocation (pToInt $ c +<- 2) (CodeAddress $ p +<- 3) stack,
+      us,
+      trail
+    )
+  )
 push _ _ _ = error "Case not covered by GroundL pattern matching for push."
 
 newStackForPush :: RegisterKeller -> (Argument -> (Zielcode -> Stack StackElement))
