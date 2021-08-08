@@ -7,7 +7,7 @@ import Stack
 import Test.HUnit
 import Tokenizer
 
-emptyZielcode :: Zielcode
+{- emptyZielcode :: Zielcode
 emptyZielcode = Stack []
 
 partialZielcode :: Zielcode
@@ -31,35 +31,24 @@ testÜbHeadNonEmptyAkk =
       (partialZielcode <> Stack [Unify unify (A "p"), Backtrack backtrackQ])
       (übHead (A "p") partialZielcode)
 
-testÜbBodyEmptyAkk = undefined
-
-testÜbBodyNonEmptyAkk = undefined
-
-testÜbProgrammSinglePkAndGoal = undefined
-
-testÜbProgramMultiplePksAndGoal = undefined
-
-testÜbProgrammOnlyGoal = undefined
-
-testÜbProgrammSingleGoalMultipleLiterals = undefined
-
-testÜbProgramSingleGoalSingleLiteral = undefined
 
 {--------------------------------------------------
     Initial values for testing commands and cHelpers.
  --------------------------------------------------}
 
-code :: Zielcode
-code = codeGen (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
+type MiniLRegisterKeller = ((B,T,C,R,P), Stack StackElement)
+
+code'' :: Zielcode
+code'' = codeGen (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
 
 code' :: Zielcode
 code' = codeGen (parse $ tokenize ":- p,r.")
 
-initStack :: Stack StackElement
-initStack = stackNewEmpty
+initStack' :: Stack StackElement
+initStack' = stackNewEmpty
 
-initial :: MiniLRegisterKeller -- register in intial state
-initial = ((False, Pointer (-1), Nil, Nil, cGoal code), initStack)
+initial' :: MiniLRegisterKeller -- register in intial state
+initial' = ((False, Pointer (-1), Nil, Nil, cGoal code), initStack')
 
 firstreg :: MiniLRegisterKeller -- register after first push
 firstreg = ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress (Pointer 0), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
@@ -92,7 +81,7 @@ testCGoalPkAndZiel =
     assertEqual
       "cGoal should return the Addressvalue of the first command in a goal when LCode consists of pks and goal."
       (Pointer 15)
-      (cGoal code)
+      (cGoal code'')
 
 testCGoalOnlyZiel =
   TestCase $
@@ -106,7 +95,7 @@ testCFirstPkAndZiel =
     assertEqual
       "cFirst should return the Addressvalue of the first command of the first pk."
       (Pointer 0)
-      (cFirst code)
+      (cFirst code'')
 
 -- testCFirstOnlyZiel = ??? Wie sollte sich cFirst bei Programm wie code' verhalten?
 
@@ -115,21 +104,21 @@ testCNextFirstPkAndZiel =
     assertEqual
       "cNext should return the Addressvalue of the first command of the next pk given a current pk location"
       (Pointer 6)
-      (cNext code (Pointer 0))
+      (cNext code'' (Pointer 0))
 
 testCNextMiddlePkAndZiel =
   TestCase $
     assertEqual
       "cNext should return the absolute Addressvalue of a pk start given another pk start."
       (Pointer 12)
-      (cNext code (Pointer 6))
+      (cNext code'' (Pointer 6))
 
 testCNextLastPkAndZiel =
   TestCase $
     assertEqual
       "cNext should return nil if called on last pk."
       Nil
-      (cNext code (Pointer 12))
+      (cNext code'' (Pointer 12))
 
 testCNextOnlyZiel =
   TestCase $
@@ -143,7 +132,7 @@ testCLastPkAndZiel =
     assertEqual
       "cLast should return codeAddress of prompt when called on LCode consisting of pk(s) and goal"
       (Pointer 21)
-      (cLast code)
+      (cLast code'')
 
 testCLastOnlyZiel =
   TestCase $
@@ -161,7 +150,7 @@ testPushAtomEmptyStack =
     assertEqual
       "push p should push Atom A, choice Point C, and return Address p+3 on stack, then update registers accordingly."
       ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress (Pointer 0), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
-      (push (A "p") initial code)
+      (push (A "p") initial' code'')
 
 testPushAtomSubsequent =
   TestCase $
@@ -176,7 +165,7 @@ testPushAtomSubsequent =
           ( (False, Pointer 3, Pointer 0, Pointer 1, Pointer 2),
             Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]
           )
-          code
+          code''
       )
 
 testUnifyUnifiable =
@@ -207,7 +196,7 @@ testCallOnFirst =
             Stack
               [CodeAddress (Pointer 0), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]
           )
-          code
+          code''
       )
 
 testCallOnSubsequent =
@@ -223,7 +212,7 @@ testCallOnSubsequent =
             Stack
               [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 0), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")]
           )
-          code
+          code''
       )
 
 testCallCNilCase =
@@ -326,13 +315,172 @@ testBacktrackQBFalse =
       "backtrack should set I correctly when called on b == false."
       ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 2), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
       (backtrackQ ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 1), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]) code)
+ -}
+{----------------------------------------- 
+  Necessary test helpers/preconditions for ML
+  -------------------------------------------}
+
+{----------------------------------------------------- 
+  Tests for ML Helpers 
+ --------------------------------------------------------}
+
+-- Linearize 
+
+{- testLinearizeSingleAtom = 
+  TestCase $ 
+    assertEqual
+      "calling linearize on a single atom should result in correct linearization"
+      [("A", 0), ("X", 0)]
+      (linearize )
+
+testLinearizeMultipleAtom = 
+  TestCase $ 
+    assertEqual 
+      "Calling linearize on multiple atoms should result in correct linearization" -}
+
+-- s_add 
+
+testSAddUnifyModeBoundVariable = undefined 
+
+testSAddUnifyModeUnboundVariable = undefined 
+
+testSAddPushModeBoundVar = undefined 
+
+testSAddPushModeUnboundVar = undefined 
+
+testSAddPushModeAtom = undefined 
+
+{---------------------------------------- 
+Tests für üb
+ -----------------------------------------}
+
+testÜbPushEmpty = TestCase $
+  assertEqual 
+    "übPush called on an empty list should add nothing to zielcode."
+    (Stack [])
+    (übPush [] (Stack []))
+
+testÜbPushExpSeq = TestCase $ 
+  assertEqual 
+    "übPush called on an Expression and a Sequence should first translate expr, then seq."
+    (Stack [Backtrack backtrack, Push push (ATStr (A "p") 1), Push push (ATStr (A "q") 1)])
+    (übPush [ExpLin (Linearization "p" 1), ExpLin (Linearization "q" 1)] (Stack [Backtrack backtrack]))
+
+testÜbPushSymbolArity = TestCase $ 
+  assertEqual 
+    "übPushSymArr should add a push STR Symbol Arity to Zielcode."
+    (Stack [Push push ATChp, Push push (ATStr (A "p") 1)])
+    (übPush [ExpLin (Linearization "p" 1)] (Stack [Push push ATChp]))
+
+testÜbPushSymbol = TestCase $ 
+  assertEqual 
+    "übPushSymbol should add a push VAR Symbol to Zielcode."
+    (Stack [Push push ATChp, Push push (ATStr (A "p") 1), Push push (ATVar' (V "X") Nil)])
+    (übPush [ExpSym (A "X")] (Stack [Push push ATChp, Push push (ATStr (A "p") 1)]))
+
+testÜbBodyEmpty = TestCase $ 
+  assertEqual 
+    "übBody called on empty list shouldn't change anything in zielcode."
+    (Stack [Backtrack backtrack])
+    (übBody [] (Stack [Backtrack backtrack]))
+
+testÜbBodyAtomSeq = TestCase $ 
+  assertEqual
+    "übBody called on an atom followed by a sequence should add push lin(atom) and add seq translation after backtrack"
+    (Stack [Call call, Push push ATChp, Push push (ATStr (A "p") 1), Push push ATEndAtom, Call call, Backtrack backtrack, Push push (ATStr (A "q") 1)])
+    (übBody [(Literal True (LTNVar (NVLTerm "p" []))), (Literal True (LTNVar (NVLTerm "q" [])))] (Stack [Call call]))
+
+testÜbUnifyEmpty = TestCase $ 
+  assertEqual
+    "übUnify called on empty list shouldn't change anything in zielcode."
+    (Stack [])
+    (übUnify [] (Stack []))
+
+testÜbUnifySymbolArity = TestCase $ 
+  assertEqual
+    "übUnify symbol arity should add a unify STR Symbol Arity to the stack"
+    (Stack [Unify unify (ATStr (A "p") 1)])
+    (übUnify [ExpLin (Linearization "p" 1)] (Stack []))
+
+testÜbUnifySymbol = TestCase $ 
+  assertEqual
+    "übUnify Symbol should add unify Var Symbol to the stack."
+    (Stack [Unify unify (ATVar' (V "X") Nil)])
+    (übUnify [ExpSym (A "X")] (Stack []))
+
+testÜbUnifyExpSeq = TestCase $ 
+  assertEqual
+    "übUnify ExpSeq should first translate exp, then add a backtrack, then translate seq"
+    (Stack [Unify unify (ATStr (A "p") 1), Backtrack backtrack, Unify unify (ATStr (A "q") 1)])
+    (übUnify [ExpLin (Linearization "p" 1), ExpLin (Linearization "q" 1)] (Stack []))
+
+testÜbHeadAtom = TestCase $ 
+  assertEqual
+    "übHead called on an atom should result in a Übunify call of the linearization of that atom"
+    (Stack [Unify unify (ATStr (A "p") 1)])
+    (übHead (NVLTerm "p" []) (Stack []))
+
+testÜbEnvEmpty = TestCase $ 
+  assertEqual
+    "übEnv called on empty Stack should add push ATEndEnv."
+    (Stack [Push push (ATEndEnv 0)])
+    (übEnv [] (Stack []))
+
+testÜbEnvSymbSeq = TestCase $ 
+  assertEqual
+    "übEnv called on Symbol/Sequence should push symbol, then add übEnv of sequence."
+    (Stack [Push push (ATVar' (V "X") Nil), Push push (ATVar' (V "Y") Nil), Push push (ATEndEnv 2)])
+    (übEnv [(V "X"), (V "Y")] (Stack []))
+
+testÜbVarSeqAtmSeq = TestCase $ 
+  assertEqual
+    "üb called on VarSeq, then Atom :- Seq should initialise with push BegEnv, call übEnv on VarSeq, übHead on Atom, übBody on Seq and finish with returnL (pos)."
+    (Stack [Push push ATBegEnv, Push push (ATVar' (V "Y") Nil), Push push (ATEndEnv 1), Unify unify (ATStr (A "p") 1), Backtrack backtrack, Push push ATChp,
+      Push push (ATStr (A "q") 1), Push push (ATVar' (V "Y") Nil), Push push ATEndAtom, Call call, Backtrack backtrack, Return returnL ATPos])
+    (stackTake 14 (codeGen $ parse $ tokenize "p(Y) :- q(Y). :- p (X)."))  
+
+testÜbVarSeqSeq = TestCase $
+  assertEqual
+    "üb called on a VarSeq with following Sequence should result in push BegEnv, followed by übenv/body of varseq and seq respectively, ending on prompt." 
+    (Stack [Push push ATBegEnv, Push push (ATVar' (V "X") Nil), Push push (ATEndEnv 1), Push push ATChp, Push push (ATStr (A "p") 1), 
+    Push push (ATVar' (V "X") Nil), Push push ATEndAtom, Call call, Backtrack backtrack, Prompt prompt])
+    (codeGen $ parse $ tokenize ":- p(X).")
+
+testÜbVarSeqAtmNoVar = TestCase $ 
+  assertEqual
+    "üb called on an atom (fact) should result in pushBegEnv, followed by an empty env and übhead called on atom, ending on return."
+    (Stack [Push push ATBegEnv, Push push (ATEndEnv 0), Unify unify (ATStr (A "q") 1), Backtrack backtrack, Unify unify (ATStr (A "a") 0), Backtrack backtrack,
+    Return returnL ATPos])
+    (stackTake 7 (codeGen $ parse $ tokenize "q(a). :- p(X).")) 
+
+testÜbVarSeqAtmWithVar = TestCase $
+  assertEqual
+    "üb called on a fact containing a var should result in pushBegEnv with filled env, übhead called on the atom, ending on return (pos)."
+    (Stack [Push push ATBegEnv, Push push (ATVar' (V "X") Nil), Push push (ATEndEnv 0), Unify unify (ATStr (A "q") 1), Backtrack backtrack,
+    Unify unify (ATVar' (V "X") Nil), Return returnL ATPos])
+    (stackTake 7 (codeGen $ parse $ tokenize "q(X). :- p(X)."))
 
 übTests =
-  [ testÜbHeadEmptyAkk,
-    testÜbHeadNonEmptyAkk
+  [ testÜbPushEmpty,
+    testÜbPushExpSeq,
+    testÜbPushSymbol,
+    testÜbPushSymbolArity,
+    testÜbBodyEmpty,
+    testÜbBodyAtomSeq, 
+    testÜbUnifyEmpty,
+    testÜbUnifyExpSeq,
+    testÜbUnifySymbol,
+    testÜbUnifySymbolArity,
+    testÜbHeadAtom,
+    testÜbEnvEmpty,
+    testÜbEnvSymbSeq,
+    testÜbVarSeqAtmNoVar,
+    testÜbVarSeqAtmWithVar,
+    testÜbVarSeqAtmSeq,
+    testÜbVarSeqSeq
   ]
 
-helpersTests =
+{- helpersTests =
   [ testCFirstPkAndZiel,
     testCGoalOnlyZiel,
     testCGoalPkAndZiel,
@@ -357,3 +505,4 @@ commandTests =
     testBacktrackQBTrue,
     testBacktrackQBFalse
   ]
+ -}

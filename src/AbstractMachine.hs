@@ -180,10 +180,10 @@ data Command
   | Prompt (RegisterKeller -> Zielcode -> IO ())
 
 instance Show Command where
-  show (Unify _ _) = "unifyML"
-  show (Push _ _) = "pushML"
+  show (Unify _ args) = "unifyML " ++ show args 
+  show (Push _ args) = "pushML " ++ show args 
   show (Call _) = "callML"
-  show (Return _ _) = "returnML"
+  show (Return _ args) = "returnML " ++ show args 
   show (Backtrack _) = "backtrackML"
   show (Prompt _) = "promptML"
 
