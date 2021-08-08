@@ -10,5 +10,5 @@ Ziel ist es die im Skript »Übersetzerbau – Abstrakte Maschinen« von den Au
 
 ## Gruppenmitglieder
 * [D'Amelio Marco](damelio@cip.ifi.lmu.de)
-* [Müller Lukas Andreas](muellerlu@cip.ifi.lmu.de)
+* [Süsslin Lukas](muellerlu@cip.ifi.lmu.de)
 * [Seilmaier Maximilian](seilmaier@cip.ifi.lmu.de)
