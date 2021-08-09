@@ -320,6 +320,12 @@ testBacktrackQBFalse =
   Necessary test helpers/preconditions for ML
   -------------------------------------------}
 
+{- initialML :: Zielcode -> RegisterKeller 
+initialML code = ((False, -1, Nil, Nil, cGoal code, UP, E, 0, 0, 0, 0, 0, 0) Stack [])
+
+testzielcodeML :: Zielcode
+testzielcodeML = codeGen $ parse $ tokenize ""
+ -}
 {----------------------------------------------------- 
   Tests for ML Helpers 
  --------------------------------------------------------}

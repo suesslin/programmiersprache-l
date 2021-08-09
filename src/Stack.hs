@@ -43,9 +43,10 @@ stackItemAtLocation 0 (Stack content) = head content
 stackItemAtLocation pos (Stack content) = content !! fromIntegral (toInteger pos) -- this is a bit suboptimal
 
 -- Replaces an element at a location
-stackReplaceAtLocation :: Int -> a -> Stack a -> Stack a
-stackReplaceAtLocation i elem (Stack content) =
-  Stack $ concat [take i content, [elem], drop (i + 1) content]
+stackReplaceAtLocation :: (Integral a, Ord a) => a -> b -> Stack b -> Stack b
+stackReplaceAtLocation i elem (Stack content) = 
+  let i' = fromIntegral (toInteger i)
+  in Stack $ concat [take i' content, [elem], drop (i' + 1) content]
 
 stackWriteToLocation :: (Num a, Ord a) => a -> b -> Stack b -> Stack b
 stackWriteToLocation pos val (Stack []) = Stack [val]
