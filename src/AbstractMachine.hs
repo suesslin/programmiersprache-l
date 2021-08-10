@@ -316,6 +316,21 @@ push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
       trail
     )
   )
+push ATBegEnv ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
+  ((b, t, c, r, p, up, Nil, ut, tt, pc, sc, ac), (stack, us, trail))
+push
+  var@(ATVar sym _)
+  rs@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
+  _ =
+    ( (b, t +<- 1, c, r, p, up, e, ut, tt, pc, sc, ac),
+      ( stackReplaceAtLocation
+          (pToInt $ t +<- 1)
+          (CodeArg $ ATVar sym (sAdd rs var ATPush))
+          stack,
+        us,
+        trail
+      )
+    )
 push ATEndAtom ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
   ( (b, t, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
     ( stackReplaceAtLocation
