@@ -192,8 +192,11 @@ codeGen parsetree = üb parsetree (Stack [])
 -- TODO: Check if commands are added in the right order (Stack is LIFO/FILO)
 üb :: Tree -> Zielcode -> Zielcode
 --ML
+
 --Üb(VarSeq, :- Sequenz.)
-üb (TP (Programm' [] (varSeq, Ziel literals))) akk = übBody literals (übEnv (map V varSeq) akk <> Stack []) <> Stack [] -- In den rechten Stack kommt Prompt für ML, In den linken Stack kommt push BegEnv für ML
+üb (TP (Programm' [] (varSeq, Ziel literals))) akk =
+  übBody literals (übEnv (map V varSeq) akk <> Stack []) <> Stack []
+-- In den rechten Stack kommt Prompt für ML, In den linken Stack kommt push BegEnv für ML
 --Üb(VarSeq, Atom :- Sequenz.)
 --In den linken Stack kommt push BegEnv (für ML) rein, In den rechten Stack kommt return pos für ML rein
 üb (TP (Programm' ((varSeq, Pk2 atom (Ziel literals)) : rest) ziel)) akk =

@@ -303,15 +303,19 @@ testParserWithProgrammWithMultiplePkAndZiel =
     assertEqual
       "The parser must return a Tree when the passed tokens are appopriate according to the syntax rules"
       ( TP $
-          Programm
-            [ Pk2
-                (NVLTerm "test" [])
-                (Ziel [Literal True (LTVar "A"), Literal False (LTVar "B")]),
-              Pk1 $ NVLTerm "another" []
+          Programm'
+            [ ( ["A", "B"],
+                Pk2
+                  (NVLTerm "test" [])
+                  (Ziel [Literal True (LTVar "A"), Literal False (LTVar "B")])
+              ),
+              ([], Pk1 $ NVLTerm "another" [])
             ]
-            (Ziel [Literal False (LTVar "A")])
+            (["A"], Ziel [Literal False (LTVar "A")])
       )
-      (parse [Name "test", Implikation, Variable "A", And, Not, Variable "B", Punkt, Name "another", Punkt, Implikation, Not, Variable "A", Punkt, Ende])
+      ( parse
+          [Name "test", Implikation, Variable "A", And, Not, Variable "B", Punkt, Name "another", Punkt, Implikation, Not, Variable "A", Punkt, Ende]
+      )
 
 {------------------------------------
  Tests for Reoccurring Literal Helper
