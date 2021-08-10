@@ -399,10 +399,27 @@ testÜbBodyAtomSeq =
     assertEqual
       "übBody called on an atom followed by a sequence should add push lin(atom) and add seq translation after backtrack"
       ( Stack
-          [Call call, Push push ATChp, Push push (ATStr (A "p") 1), Push push ATEndAtom, Call call, Backtrack backtrack, Push push (ATStr (A "q") 1)]
+          [ Call call,
+            -- Atom 1
+            Push push ATChp,
+            Push push (ATStr (A "p") 0),
+            Push push ATEndAtom,
+            Call call,
+            Backtrack backtrack,
+            -- Next Atom in Sequence
+            Push push ATChp,
+            Push push (ATStr (A "q") 0),
+            Push push ATEndAtom,
+            Call call,
+            Backtrack backtrack
+          ]
       )
-      (übBody [(Literal True (LTNVar (NVLTerm "p" []))), (Literal True (LTNVar (NVLTerm "q" [])))] (Stack [Call call]))
+      ( übBody
+          [Literal True (LTNVar (NVLTerm "p" [])), Literal True (LTNVar (NVLTerm "q" []))]
+          (Stack [Call call])
+      )
 
+testÜbUnifyEmpty :: Test
 testÜbUnifyEmpty =
   TestCase $
     assertEqual
@@ -450,8 +467,13 @@ testÜbEnvSymbSeq =
   TestCase $
     assertEqual
       "übEnv called on Symbol/Sequence should push symbol, then add übEnv of sequence."
-      (Stack [Push push (ATVar (V "X") Nil), Push push (ATVar (V "Y") Nil), Push push (ATEndEnv 2)])
-      (übEnv [(V "X"), (V "Y")] (Stack []))
+      ( Stack
+          [ Push push (ATVar (V "X") Nil),
+            Push push (ATVar (V "Y") Nil),
+            Push push (ATEndEnv 2)
+          ]
+      )
+      (übEnv [V "X", V "Y"] (Stack []))
 
 testÜbVarSeqAtmSeq =
   TestCase $

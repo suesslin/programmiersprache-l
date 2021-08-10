@@ -240,25 +240,28 @@ codeGen parsetree = üb parsetree (Stack [])
       <> Stack
         [ Push push ATEndAtom,
           Call call,
-          Backtrack backtrackQ',
+          Backtrack backtrack,
           Return returnL ATNeg,
-          Backtrack backtrackQ'
+          Backtrack backtrack
         ]
 -- Üb_Body([Atom | Sequenz])
 übBody ((Literal _ (LTNVar atom)) : seq) akk =
   übBody
     seq
     $ übPush [ExpLin $ linearize atom] (akk <> Stack [Push push ATChp])
-      <> Stack [Push push ATEndAtom, Call call, Backtrack backtrackQ']
+      <> Stack [Push push ATEndAtom, Call call, Backtrack backtrack]
 übBody [] akk = akk
 übBody _ _ = error "Failure in übBody."
 
 übEnv :: [Variable] -> Stack Command -> Stack Command
--- FIXME: Is the int correct for ATEndEnv? No value given in script
-übEnv [] akk = akk <> Stack [Push push $ ATEndEnv 0]
--- ÜbEnv([Symbol|Sequenz])
-übEnv (var : seq) akk =
-  übEnv seq (akk <> Stack [Push push (ATVar var Nil)])
+übEnv var = übEnvHelper var (length var)
+
+type VariableCount = Int
+
+übEnvHelper :: [Variable] -> VariableCount -> Stack Command -> Stack Command
+übEnvHelper [] n akk = akk <> Stack [Push push $ ATEndEnv n]
+übEnvHelper (var : seq) n akk =
+  übEnvHelper seq n (akk <> Stack [Push push (ATVar var Nil)])
 
 übPush :: [Exp] -> Zielcode -> Zielcode
 -- ÜbPush([])
@@ -278,7 +281,7 @@ codeGen parsetree = üb parsetree (Stack [])
   akk <> Stack [Unify unify (ATVar (V sym) Nil)]
 -- übUnify([Exp | Sequenz])
 übUnify (exp : seq) akk =
-  übUnify seq $ übUnify [exp] akk <> Stack [Backtrack backtrackQ']
+  übUnify seq $ übUnify [exp] akk <> Stack [Backtrack backtrack]
 -- übUnify([])
 übUnify [] akk = akk
 
@@ -461,47 +464,17 @@ unsafeIsStackNilForRegister (Pointer regAddr) stack =
   CodeAddress Nil == stackItemAtLocation regAddr stack
 unsafeIsStackNilForRegister Nil _ = error "Empty register (Nil) but expected an address."
 
--- Backtrack? für Negation durch Scheitern
-backtrackQ' :: RegisterKeller -> Zielcode -> RegisterKeller
-backtrackQ' regKeller@((True, _, _, _, _, _, _, _, _, _, _, _), _) code =
-  backtrack' regKeller code
-backtrackQ' (regs, stack) code = noBacktrack (regs, stack)
-
--- Backtrack flag is set to True
-backtrack' :: RegisterKeller -> Zielcode -> RegisterKeller
-backtrack' regKeller@(_, stack) code =
-  let regKeller'@(regs'@(_, _, c', _, _, _, _, _, _, _, _, _), (stack', _, _)) =
-        physicalPoppingIfCpNilAndBackjumpNot regKeller
-   in if unsafeIsStackNilForRegister c' stack'
-        then backtrackCpNil' regKeller' code
-        else backtrackCpNotNil regKeller' code
-
-backtrackCpNil' :: RegisterKeller -> Zielcode -> RegisterKeller
-backtrackCpNil' ((b, t, c, r, _, up, e, ut, tt, pc, sc, ac), regKeller@(stack, _, _)) code
-  | stackItemAtLocation (c +<- 3) stack == CodeArg ATNot =
-    ( ( b,
-        t,
-        c,
-        r,
-        safePointerFromStackAtLocation (c +<- 2) stack,
-        up,
-        e,
-        ut,
-        tt,
-        pc,
-        sc,
-        ac
-      ),
-      regKeller
-    )
-  | otherwise =
-    ((b, t, c, r, cLast code, up, e, ut, tt, pc, sc, ac), regKeller)
-
 -- Backtrack? für GroundL
 
 backtrack :: RegisterKeller -> Zielcode -> RegisterKeller
 backtrack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), register@(stack, us, trail)) code
-  | b = backtrackAfterSchleife (backtrackISchleife (safePointerFromStackAtLocation (c +<- 4) stack +<- 1) (backtrackAfterWhile (backtrackWhile all))) code
+  | b =
+    backtrackAfterSchleife
+      ( backtrackISchleife
+          (safePointerFromStackAtLocation (c +<- 4) stack +<- 1)
+          (backtrackAfterWhile (backtrackWhile all))
+      )
+      code
   | otherwise = ((b, t, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac), register)
 
 backtrackWhile :: RegisterKeller -> RegisterKeller
