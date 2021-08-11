@@ -83,7 +83,7 @@ data Argument
  ----------------------------}
 data Linearization = Linearization String Arity deriving (Eq, Show)
 
-data Exp = ExpLin Linearization | ExpVar Variable deriving Show
+data Exp = ExpLin Linearization | ExpVar Variable deriving (Show)
 
 instance Show Variable where
   show (V str) = str
@@ -174,8 +174,8 @@ instance Eq Command where
    Translations
 -----------------------------------------------------------}
 
-codeGen :: Tree -> Zielcode
-codeGen parsetree = üb parsetree (Stack [])
+genCode :: Tree -> Zielcode
+genCode parsetree = üb parsetree (Stack [])
 
 -- Main translation function.
 -- Takes a parse tree and tries to generate a so called "Zielcode".
@@ -265,13 +265,11 @@ type VariableCount = Int
 -- übUnify([])
 übUnify [] akk = akk
 -- übUnify(Symbol/Arity)
-übUnify (ExpLin (Linearization sym arity):rest) akk = 
-  übUnify rest (akk <> Stack [Unify unify (ATStr (A sym) arity),Backtrack backtrack])
+übUnify (ExpLin (Linearization sym arity) : rest) akk =
+  übUnify rest (akk <> Stack [Unify unify (ATStr (A sym) arity), Backtrack backtrack])
 -- übUnify(Symbol)
-übUnify (ExpVar var:rest) akk =
-  übUnify rest (akk <> Stack [Unify unify (ATVar var Nil),Backtrack backtrack])
-
-
+übUnify (ExpVar var : rest) akk =
+  übUnify rest (akk <> Stack [Unify unify (ATVar var Nil), Backtrack backtrack])
 
 {--------------------------------------------------------------
    Instruktionen
@@ -485,13 +483,14 @@ prompt ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
 linearize :: NVLTerm -> [Exp]
 linearize atom = linearizeNV atom []
 
-linearizeNV :: NVLTerm -> [Exp] -> [Exp] 
+linearizeNV :: NVLTerm -> [Exp] -> [Exp]
 linearizeNV (NVLTerm atom subatoms) akk = linearizeV subatoms (akk ++ [ExpLin $ Linearization atom $ length subatoms])
 
 linearizeV :: [LTerm] -> [Exp] -> [Exp]
 linearizeV [] akk = akk
-linearizeV (LTVar var:rest) akk = linearizeV rest (akk ++ [ExpVar (V var)])
-linearizeV (LTNVar atom:rest) akk = linearizeV rest (linearizeNV atom akk)
+linearizeV (LTVar var : rest) akk = linearizeV rest (akk ++ [ExpVar (V var)])
+linearizeV (LTNVar atom : rest) akk = linearizeV rest (linearizeNV atom akk)
+
 -- Funktion zum finden einer Kelleradresse
 -- TODO Eventuell Problem, siehe Zulip; maybe refactor using takeWhile
 

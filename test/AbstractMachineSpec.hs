@@ -14,7 +14,7 @@ partialZielcode :: Zielcode
 partialZielcode = Stack [Unify unify (A "p"), Backtrack backtrackQ, Push push (A "q"), Call call, Backtrack backtrackQ, Return returnL]
 
 {--------------------------------------------------
-    Tests for of codeGen | üb
+    Tests for of genCode | üb
  --------------------------------------------------}
 
 testÜbHeadEmptyAkk =
@@ -38,10 +38,10 @@ testÜbHeadNonEmptyAkk =
 type MiniLRegisterKeller = ((B,T,C,R,P), Stack StackElement)
 
 code'' :: Zielcode
-code'' = codeGen (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
+code'' = genCode (parse $ tokenize "p :- q. q :- r. r. :- p, r.")
 
 code' :: Zielcode
-code' = codeGen (parse $ tokenize ":- p,r.")
+code' = genCode (parse $ tokenize ":- p,r.")
 
 initStack' :: Stack StackElement
 initStack' = stackNewEmpty
@@ -323,7 +323,7 @@ testBacktrackQBFalse =
 initialML code = ((False, -1, Nil, Nil, cGoal code, UP, E, 0, 0, 0, 0, 0, 0) Stack [])
 
 testzielcodeML :: Zielcode
-testzielcodeML = codeGen $ parse $ tokenize ""
+testzielcodeML = genCode $ parse $ tokenize ""
  -}
 {-----------------------------------------------------
   Tests for ML Helpers
@@ -494,7 +494,7 @@ testÜbVarSeqAtmSeq =
             Return returnL ATPos
           ]
       )
-      (stackTake 14 (codeGen $ parse $ tokenize "p(Y) :- q(Y). :- p (X)."))
+      (stackTake 14 (genCode $ parse $ tokenize "p(Y) :- q(Y). :- p (X)."))
 
 testÜbVarSeqSeq =
   TestCase $
@@ -513,7 +513,7 @@ testÜbVarSeqSeq =
             Prompt prompt
           ]
       )
-      (codeGen $ parse $ tokenize ":- p(X).")
+      (genCode $ parse $ tokenize ":- p(X).")
 
 testÜbVarSeqAtmNoVar =
   TestCase $
@@ -529,7 +529,7 @@ testÜbVarSeqAtmNoVar =
             Return returnL ATPos
           ]
       )
-      (stackTake 7 (codeGen $ parse $ tokenize "q(a). :- p(X)."))
+      (stackTake 7 (genCode $ parse $ tokenize "q(a). :- p(X)."))
 
 testÜbVarSeqAtmWithVar =
   TestCase $
@@ -545,7 +545,7 @@ testÜbVarSeqAtmWithVar =
             Return returnL ATPos
           ]
       )
-      (stackTake 7 (codeGen $ parse $ tokenize "q(X). :- p(X)."))
+      (stackTake 7 (genCode $ parse $ tokenize "q(X). :- p(X)."))
 
 übTests =
   [ testÜbPushEmpty,
