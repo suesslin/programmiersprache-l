@@ -493,12 +493,15 @@ linearizeV (LTNVar atom : rest) akk = linearizeV rest (linearizeNV atom akk)
 
 -- Funktion zum finden einer Kelleradresse
 -- TODO Eventuell Problem, siehe Zulip; maybe refactor using takeWhile
+-- TODO decide on solution version
 
-sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
+{- sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
 sAdd
   all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   symb
-  ATUnify = sAddHelper all (stackItemAtLocation e stack) e
+  ATUnify = sAddHelper all (stackItemAtLocation e stack) e -}
+{- sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
+sAdd all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) symb ATUnify = sAddHelper all (stackItemAtLocation e stack) e
 sAdd all@(addressreg@(b, t, Nil, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) symb ATPush = Nil -- TODO correct?
 sAdd all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) symb ATPush = sAddHelper all (stackItemAtLocation (c + 3) stack) (c + 3)
 sAdd _ _ _ = error "something went wrong in s_add"
@@ -509,6 +512,30 @@ sAddHelper (reg, stacks@(stack, us, trail)) (CodeArg (ATVar (V name) addr)) curr
 sAddHelper (reg, stacks@(stack, us, trail)) (CodeArg (ATEndEnv _)) currentLoc = Nil --stand in für stack argument o.ä. => EndEnv Pointer/Stackinhalt
 sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc =
   sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
+sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
+ -}
+
+sAdd :: RegisterKeller -> Argument -> Argument -> Pointer 
+sAdd regkeller@((b,t,c,r,p,up,e,ut,tt,pc,sc,ac),(stack@(Stack content),us,trail)) targetvar@(ATVar _ _) modearg = 
+  let stackpart@(Stack content') = Stack (takeWhile (not . isStackElemEndEnv) content)
+    in case modearg of 
+      ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar 
+      ATPush  -> if safePointerFromStackAtLocation c stack == Nil then sAddHelper stackpart targetvar
+                 else sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content')) targetvar 
+      _       -> error "sAdd was called with wrong modearg"
+sAdd _ _ _ = error "sAdd called on non variable"
+
+sAddHelper :: Stack StackElement -> Argument -> Pointer 
+sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) = 
+  let stackpart' = stackPop stackpart 
+  in if isSameVariableName (CodeArg targetvar) (stackPeekBottom stackpart)   
+     then addr
+     else sAddHelper stackpart' targetvar 
+sAddHelper _ _ = error "Error in sAdd Helper"
+
+isSameVariableName :: StackElement -> StackElement -> Bool 
+isSameVariableName (CodeArg (ATVar symb1 _)) (CodeArg (ATVar symb2 _)) = symb1 == symb2 
+isSameVariableName _ _ = False 
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
 
@@ -548,6 +575,12 @@ display stack@(Stack content) =
 isStackElemEndEnv :: StackElement -> Bool
 isStackElemEndEnv (CodeArg (ATEndEnv _)) = True
 isStackElemEndEnv _ = False
+
+{- isStackElemArg :: Argument -> StackElement -> Bool
+isStackElemArg givenarg (CodeArg (arg)) 
+  | arg == givenarg = True  
+  | otherwise = False 
+isStackElemArg _ _ = False  -}
 
 displayHelper :: MLStack -> MLStack -> Pointer -> String -> String
 displayHelper stackpart orgstack addr str =

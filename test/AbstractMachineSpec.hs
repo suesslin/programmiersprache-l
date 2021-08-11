@@ -165,9 +165,120 @@ testPushAtomSubsequent =
             Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]
           )
           code''
-      )
+      ) -}
 
-testUnifyUnifiable =
+initialML :: RegisterKeller 
+initialML = ((False, Pointer (-1), Pointer 0, Nil, Pointer 0, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Pointer 0), (initialStack, initialUs, initialTrail))
+
+zielcodeEmptyML :: Zielcode 
+zielcodeEmptyML = stackNewEmpty 
+
+initialStack :: Stack StackElement 
+initialStack = stackNewEmpty 
+
+initialUs :: Stack StackElement 
+initialUs = stackNewEmpty 
+
+initialTrail :: Stack StackElement 
+initialTrail = stackNewEmpty 
+
+pushTestRegs :: RegisterKeller 
+pushTestRegs = ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 0, Nil, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil), 
+      (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail))
+
+pushTestRegsEndEnv :: RegisterKeller 
+pushTestRegsEndEnv = ((False, Pointer 5, Pointer 0, Pointer 0, Pointer 0, Nil, Pointer 4, Pointer 0, Pointer 0, 0, 0, Nil), 
+      (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail))
+
+-- TODO, check validity 
+testPushSTR = 
+  TestCase $ 
+    assertEqual 
+      "push Str symb arity should update stack location t+1 with said Str Cell, then increase t by 1."
+      ((False, Pointer 0, Pointer 0, Nil, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Pointer 0), (Stack [CodeArg (ATStr (A "p") 1)], initialUs, initialTrail))
+      (push (ATStr (A "p") 1) initialML zielcodeEmptyML)
+
+testPushVAR = 
+  TestCase $ 
+    assertEqual 
+      "push Var symb (nil) should update loc t+1 with var symb and call s_add to find a stackadress (or keep nil), then t+1." 
+      ((False, Pointer 0, Pointer 0, Nil, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Pointer 0), (Stack [CodeArg (ATVar (V "X") 1)], initialUs, initialTrail))
+      (push (ATVar (V "X") Nil) initialML zielcodeEmptyML)
+
+-- TODO, check validity
+testPushCHP = 
+  TestCase $ 
+    assertEqual 
+      "push chp should update stack an registers accordingly."
+      ((False, Pointer 5, Pointer 0, Pointer 1, Pointer 1, Pointer 6, Nil, Pointer 0, Pointer 0, 0, 0, Nil), 
+      (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress Nil, StackAddress Nil, StackAddress (Pointer 0)], initialUs, initialTrail))
+      (push ATChp initialML zielcodeEmptyML) -- has to be replaced by actual zielcode 
+
+testPushEndAtom = 
+  TestCase $ 
+    assertEqual 
+      "push EndAtom should set registers accordingly (update stack at locations c+2 and c+5)" 
+      ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 1, Nil, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil), (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 3), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer (-1))], initialUs, initialTrail))
+      (push ATEndAtom pushTestRegs zielcodeEmptyML)
+
+testPushBegEnv = 
+  TestCase $ 
+    assertEqual
+      "push BegEnv should set registers accordingly (reset the e pointer to nil)"
+      ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Nil), (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 3), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer (-1))], initialUs, initialTrail))
+      (push ATBegEnv pushTestRegs zielcodeEmptyML)
+
+testPushEndEnv = 
+  TestCase $ 
+    assertEqual 
+      "push EndEnv n should set stack and registers accordingly (set e pointer, iterate t, set EndEnv StackArgument)."
+      ((False, Pointer 6, Pointer 0, Pointer 0, Pointer 1, Nil, Pointer 3, Pointer 0, Pointer 0, 0, 0, Nil), (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 3), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer (-1)), CodeArg (ATEndEnv 1)], initialUs, initialTrail))
+      (push (ATEndEnv 1) pushTestRegsEndEnv zielcodeEmptyML)
+
+stackBacktrackTestML = Stack [StackAddress (Pointer 0), CodeAddress (Pointer 1), CodeAddress (Pointer 2), StackAddress (Pointer 3), StackAddress (Pointer 4),
+                        StackAddress (Pointer 1), StackAddress (Pointer 3), StackAddress (Pointer 6), StackAddress (Pointer 3)]
+
+trailBacktrackTestML = Stack [StackAddress (Pointer 1)]
+-- filled stack with basically random values (expect loc 1 and 2); should be fine, but if weirdness occurs, check this
+
+registerBacktrackTest :: AddressRegs 
+registerBacktrackTest = (True, Pointer 2, Pointer 2, Pointer 1, Pointer 1, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0)
+
+registerBacktrackTestBFalse :: AddressRegs 
+registerBacktrackTestBFalse = (False, Pointer 2, Pointer 2, Pointer 1, Pointer 1, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0)
+
+registerKellerBacktrackMLCNotNil :: RegisterKeller 
+registerKellerBacktrackMLCNotNil = (registerBacktrackTest, (stackBacktrackTestML, initialUs, trailBacktrackTestML))
+
+testBacktrackBTrue = 
+  TestCase $ 
+    assertEqual 
+      "Backtrack should set registers accordingly when called on c not nil and no stack(c) = nil match."
+      ((True, Pointer 6, Pointer 2, Pointer 1, Pointer 1, Pointer 8, Pointer 7, Pointer 0, Pointer 3, 0, 0, Nil), (stackBacktrackTestML, initialUs, trailBacktrackTestML))
+      (backtrack registerKellerBacktrackMLCNotNil zielcodeEmptyML)
+
+{- testBacktrackBTrailISmallerT = 
+  TestCase $ 
+    assertEqual
+      "Backtrack should set registers accordingly when trail(i) < T case is matched."
+      ((True, ))
+      ()
+
+testBacktrackBTrueStackCNil =
+  TestCase $ 
+    assertEqual
+      "Backtrack should set registers accordingly when while loop is entered (stack(c) = nil and stack(r) /= nil)."
+      ()
+      () -}
+
+testBacktrackBFalse = 
+  TestCase $ 
+    assertEqual 
+      "Backtrack should increment p by one if called with b = false."
+      ((False, Pointer 6, Pointer 2, Pointer 1, Pointer 2, Pointer 8, Pointer 7, Pointer 0, Pointer 3, 0, 0, Nil), (stackBacktrackTestML, initialUs, trailBacktrackTestML))
+      (backtrack (registerBacktrackTestBFalse, (stackBacktrackTestML, initialUs, trailBacktrackTestML)) zielcodeEmptyML)
+
+{- testUnifyUnifiable =
   TestCase $
     assertEqual
       "unify p should set registers accordingly when called on unifiable clause."
@@ -570,6 +681,19 @@ testÜbVarSeqAtmWithVar =
     testÜbVarSeqSeq
   ]
 
+pushTests = 
+  [ testPushSTR,
+    testPushVAR,
+    testPushCHP,
+    testPushEndAtom,
+    testPushBegEnv,
+    testPushEndEnv
+  ]
+
+backtrackTests = 
+  [ testBacktrackBTrue,
+    testBacktrackBFalse
+  ]
 {- helpersTests =
   [ testCFirstPkAndZiel,
     testCGoalOnlyZiel,

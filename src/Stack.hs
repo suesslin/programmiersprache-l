@@ -27,6 +27,9 @@ stackNewEmpty = Stack []
 stackPeekTop :: Stack a -> a
 stackPeekTop (Stack content) = last content
 
+stackPeekBottom :: Stack a -> a 
+stackPeekBottom (Stack content) = head content 
+
 stackPop :: Stack a -> Stack a
 stackPop (Stack content) = Stack (init content)
 
