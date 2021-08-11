@@ -839,7 +839,7 @@ pushD1D2 d1 d2 i arity weiter all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc,
       arity
       weiter
       ( addressreg,
-        ( stackPush (CodeAddress (d2 +<- 1)) $ stackPush (CodeAddress (d1 +<- 1)) stack,
+        ( stackPush (CodeAddress (d2 +<- i)) $ stackPush (CodeAddress (d1 +<- i)) stack,
           us,
           trail
         )
