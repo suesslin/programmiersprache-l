@@ -6,9 +6,8 @@ data Pointer = Pointer Int | Nil deriving (Show, Eq)
 
 instance Num Pointer where
   (Pointer x) + (Pointer y) = Pointer (x + y)
-  Nil + Nil = Nil
-  (Pointer _) + Nil = Nil
-  Nil + (Pointer y) = Nil
+  x + Nil = x
+  Nil + y = y
   (Pointer x) - (Pointer y) = Pointer (x - y)
   Nil - Nil = Nil
   (Pointer _) - Nil = Nil

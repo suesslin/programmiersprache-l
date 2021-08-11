@@ -309,12 +309,12 @@ push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
     )
   )
 push ATBegEnv ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
-  ((b, t, c, r, p, up, Nil, ut, tt, pc, sc, ac), (stack, us, trail))
+  ((b, t, c, r, p+<-1, up, Nil, ut, tt, pc, sc, ac), (stack, us, trail))
 push
   var@(ATVar sym _)
   rs@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   _ =
-    ( (b, t +<- 1, c, r, p, up, e, ut, tt, pc, sc, ac),
+    ( (b, t +<- 1, c, r, p+<-1, up, e, ut, tt, pc, sc, ac),
       ( stackReplaceAtLocation
           (pToInt $ t +<- 1)
           (CodeArg $ ATVar sym (sAdd rs var ATPush))
@@ -337,8 +337,8 @@ push ATEndAtom ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) 
       trail
     )
   )
-push (ATEndEnv n) (regs@(_, t, c, _, p, _, _, _, _, _, _, _), (stack, us, trail)) _ =
-  ( regs,
+push (ATEndEnv n) (regs@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
+  ( (b, t, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
     ( stackReplaceAtLocation (c +<- 5) (CodeAddress t) $
         stackReplaceAtLocation (c +<- 2) (CodeAddress $ p +<- 3) stack,
       us,
@@ -847,3 +847,26 @@ pushD1D2 d1 d2 i arity weiter all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc,
         )
       )
   | otherwise = unifyProzedur' weiter all
+
+{--------------------------------------------------------------------
+              ML Auswertung
+---------------------------------------------------------------------}
+--Die Logik dahinter: Man lässt die Befehle durchlaufen und müsste dann bei einem korrekten Programm am Ende bei Prompt gelandet sein.
+--Dann könnte man in der Main Methode prompt aufrufen und abhängig vom Resultat noch einmal auswertung aufrufen, aber eben mit den in Prompt angepassten werten. 
+--Hoffe das geht so, 
+auswertung :: RegisterKeller -> Zielcode -> RegisterKeller
+auswertung all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code = 
+  let command = stackItemAtLocation (pToInt p) code 
+  in case command of
+    Unify unify args -> auswertung (unify args all) code
+    Push push args -> auswertung (push args all code) code
+    Call call -> auswertung (call all code) code
+    Return returnL args -> auswertung (returnL args all) code
+    Backtrack backtrack -> auswertung (backtrack all code) code
+    Prompt prompt -> all
+
+starter:: Zielcode -> RegisterKeller
+starter code = ((False, Pointer 0, Nil, Nil, cGoal code, Nil,Nil,Nil,0,0,0,Nil), (Stack [], Stack [], Stack []))
+
+promptWasCalled :: Zielcode -> RegisterKeller
+promptWasCalled code = auswertung (starter code) code
