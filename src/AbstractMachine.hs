@@ -1,7 +1,7 @@
-module AbstractMachine where
+module AbstractMachine (genCode) where
 
 import Control.Exception
-import Data.Maybe
+import Data.Maybe (fromJust, fromMaybe)
 import Models
 import Parser
 import Stack

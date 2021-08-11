@@ -1,6 +1,6 @@
 module Main where
 
-import AbstractMachine (codeGen)
+import AbstractMachine (genCode)
 import Parser
 import Tokenizer (tokenize)
 
@@ -48,7 +48,7 @@ main = do
   case outputType of
     Tokens -> print $ tokenize sourceCode
     ParsedProgram -> print . parse $ tokenize sourceCode
-    TranslatedProgram -> print . codeGen . parse $ tokenize sourceCode
+    TranslatedProgram -> print . genCode . parse $ tokenize sourceCode
     UnknownOutput -> error "Fehler: nicht aufgeführter Ausgabetyp eingefordert. "
 
 data OutputType = Tokens | ParsedProgram | TranslatedProgram | UnknownOutput
