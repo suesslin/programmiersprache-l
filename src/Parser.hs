@@ -181,7 +181,7 @@ newPk' (Pk1 (NVLTerm x (lTerm : rest))) akk varSeq = case lTerm of
   LTVar s -> newPk' (Pk1 (NVLTerm x rest)) (akk ++ [lTerm]) (varSeq ++ [s])
   LTNVar nt -> newPk' (Pk1 (NVLTerm x rest)) (akk ++ [lTerm]) (newNVLT nt varSeq)
 --Für Programmklauseln mit Zielen
-newPk' (Pk2 (NVLTerm x []) ziel) akk varSeq = (varSeq ++ newZiel' ziel [], Pk2 (NVLTerm x akk) ziel)
+newPk' (Pk2 (NVLTerm x []) ziel) akk varSeq = (removeDuplicates $ varSeq ++ newZiel' ziel [], Pk2 (NVLTerm x akk) ziel)
 newPk' (Pk2 (NVLTerm x (lTerm : rest)) ziel) akk varSeq = case lTerm of
   LTVar s -> newPk' (Pk2 (NVLTerm x rest) ziel) (akk ++ [lTerm]) (varSeq ++ [s])
   LTNVar nt -> newPk' (Pk2 (NVLTerm x rest) ziel) (akk ++ [lTerm]) (newNVLT nt varSeq)

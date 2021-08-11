@@ -186,17 +186,17 @@ codeGen parsetree = üb parsetree (Stack [])
 
 --Üb(VarSeq, :- Sequenz.)
 üb (TP (Programm' [] (varSeq, Ziel literals))) akk =
-  übBody literals (übEnv (map V varSeq) akk <> Stack [Push push ATBegEnv]) <> Stack [Prompt prompt]
+  übBody literals (übEnv (map V varSeq) (akk <> Stack [Push push ATBegEnv])) <> Stack [Prompt prompt]
 --Üb(VarSeq, Atom :- Sequenz.)
 üb (TP (Programm' ((varSeq, Pk2 atom (Ziel literals)) : rest) ziel)) akk =
   üb
     (TP (Programm' rest ziel))
-    (übBody literals (übHead atom (übEnv (map V varSeq) akk <> Stack [Push push ATBegEnv])) <> Stack [Return returnL ATPos])
+    (übBody literals (übHead atom (übEnv (map V varSeq) (akk <> Stack [Push push ATBegEnv]))) <> Stack [Return returnL ATPos])
 --Üb(VarSeq, Atom.)
 üb (TP (Programm' ((varSeq, Pk1 atom) : rest) ziel)) akk =
   üb
     (TP (Programm' rest ziel))
-    (übHead atom (übEnv (map V varSeq) akk <> Stack [Push push ATBegEnv]) <> Stack [Return returnL ATPos])
+    (übHead atom (übEnv (map V varSeq) (akk <> Stack [Push push ATBegEnv])) <> Stack [Return returnL ATPos])
 --MiniL/GroundL
 -- If there are no Programmklauseln
 üb (TP (Programm [] (Ziel lits))) akk = üb (TZ (Ziel lits)) akk
@@ -219,11 +219,11 @@ codeGen parsetree = üb parsetree (Stack [])
 
 übBody :: [Literal] -> Zielcode -> Zielcode
 -- ÜbBody([not Atom | Sequenz])
-übBody ((Literal False (LTNVar atom)) : seq) akk =
+übBody ((Literal False (LTNVar nvlt@(NVLTerm atom subatoms))) : seq) akk =
   übBody
     seq
     $ übPush
-      [ExpLin $ linearize atom]
+      [ExpLin $ linearize nvlt]
       (akk <> Stack [Push push ATNot, Push push ATChp])
       <> Stack
         [ Push push ATEndAtom,
@@ -233,10 +233,10 @@ codeGen parsetree = üb parsetree (Stack [])
           Backtrack backtrack
         ]
 -- Üb_Body([Atom | Sequenz])
-übBody ((Literal _ (LTNVar atom)) : seq) akk =
+übBody ((Literal _ (LTNVar nvlt@(NVLTerm atom subatoms))) : seq) akk =
   übBody
     seq
-    $ übPush [ExpLin $ linearize atom] (akk <> Stack [Push push ATChp])
+    $ übPush [ExpLin $ linearize nvlt] (akk <> Stack [Push push ATChp])
       <> Stack [Push push ATEndAtom, Call call, Backtrack backtrack]
 übBody [] akk = akk
 übBody _ _ = error "Failure in übBody."
