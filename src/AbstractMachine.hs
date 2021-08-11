@@ -1,4 +1,4 @@
-module AbstractMachine (genCode) where
+module AbstractMachine where
 
 import Control.Exception
 import Data.Maybe (fromJust, fromMaybe)

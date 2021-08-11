@@ -548,7 +548,7 @@ testÜbVarSeqAtmWithVar =
             Return returnL ATPos
           ]
       )
-      (stackTake 8 (codeGen $ parse $ tokenize "q(X). :- p(X)."))
+      (stackTake 8 (genCode $ parse $ tokenize "q(X). :- p(X)."))
 
 übTests =
   [ testÜbPushEmpty,
