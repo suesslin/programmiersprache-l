@@ -186,20 +186,17 @@ codeGen parsetree = üb parsetree (Stack [])
 
 --Üb(VarSeq, :- Sequenz.)
 üb (TP (Programm' [] (varSeq, Ziel literals))) akk =
-  übBody literals (übEnv (map V varSeq) akk <> Stack []) <> Stack []
--- In den rechten Stack kommt Prompt für ML, In den linken Stack kommt push BegEnv für ML
+  übBody literals (übEnv (map V varSeq) akk <> Stack [Push push ATBegEnv]) <> Stack [Prompt prompt]
 --Üb(VarSeq, Atom :- Sequenz.)
---In den linken Stack kommt push BegEnv (für ML) rein, In den rechten Stack kommt return pos für ML rein
 üb (TP (Programm' ((varSeq, Pk2 atom (Ziel literals)) : rest) ziel)) akk =
   üb
     (TP (Programm' rest ziel))
-    (übBody literals (übHead atom (übEnv (map V varSeq) akk <> Stack [])) <> Stack [])
+    (übBody literals (übHead atom (übEnv (map V varSeq) akk <> Stack [Push push ATBegEnv])) <> Stack [Return returnL ATPos])
 --Üb(VarSeq, Atom.)
---In den linken Stack kommt push BegEnv (für ML) rein, In den rechten Stack kommt return pos für ML rein
 üb (TP (Programm' ((varSeq, Pk1 atom) : rest) ziel)) akk =
   üb
     (TP (Programm' rest ziel))
-    (übHead atom (übEnv (map V varSeq) akk <> Stack []) <> Stack [])
+    (übHead atom (übEnv (map V varSeq) akk <> Stack [Push push ATBegEnv]) <> Stack [Return returnL ATPos])
 --MiniL/GroundL
 -- If there are no Programmklauseln
 üb (TP (Programm [] (Ziel lits))) akk = üb (TZ (Ziel lits)) akk
