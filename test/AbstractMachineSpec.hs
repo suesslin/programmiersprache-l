@@ -385,7 +385,7 @@ testÜbPushSymbol =
     assertEqual
       "übPushSymbol should add a push VAR Symbol to Zielcode."
       (Stack [Push push ATChp, Push push (ATStr (A "p") 1), Push push (ATVar (V "X") Nil)])
-      (übPush [ExpSym (A "X")] (Stack [Push push ATChp, Push push (ATStr (A "p") 1)]))
+      (übPush [ExpVar (V "X")] (Stack [Push push ATChp, Push push (ATStr (A "p") 1)]))
 
 testÜbBodyEmpty =
   TestCase $
@@ -430,29 +430,29 @@ testÜbUnifyEmpty =
 testÜbUnifySymbolArity =
   TestCase $
     assertEqual
-      "übUnify symbol arity should add a unify STR Symbol Arity to the stack"
-      (Stack [Unify unify (ATStr (A "p") 1)])
+      "übUnify symbol arity should add a unify STR Symbol Arity to the stack and a backtrack"
+      (Stack [Unify unify (ATStr (A "p") 1), Backtrack backtrack])
       (übUnify [ExpLin (Linearization "p" 1)] (Stack []))
 
 testÜbUnifySymbol =
   TestCase $
     assertEqual
-      "übUnify Symbol should add unify Var Symbol to the stack."
-      (Stack [Unify unify (ATVar (V "X") Nil)])
-      (übUnify [ExpSym (A "X")] (Stack []))
+      "übUnify ExpVar should add unify to the stack and backtrack."
+      (Stack [Unify unify (ATVar (V "X") Nil), Backtrack backtrack])
+      (übUnify [ExpVar (V "X")] (Stack []))
 
 testÜbUnifyExpSeq =
   TestCase $
     assertEqual
-      "übUnify ExpSeq should first translate exp, then add a backtrack, then translate seq"
-      (Stack [Unify unify (ATStr (A "p") 1), Backtrack backtrack, Unify unify (ATStr (A "q") 1)])
+      "übUnify ExpVar should first translate exp, then add a backtrack, then translate seq"
+      (Stack [Unify unify (ATStr (A "p") 1), Backtrack backtrack, Unify unify (ATStr (A "q") 1),Backtrack backtrack])
       (übUnify [ExpLin (Linearization "p" 1), ExpLin (Linearization "q" 1)] (Stack []))
 
 testÜbHeadAtom =
   TestCase $
     assertEqual
       "übHead called on an atom should result in a Übunify call of the linearization of that atom"
-      (Stack [Unify unify (ATStr (A "p") 0)])
+      (Stack [Unify unify (ATStr (A "p") 0), Backtrack backtrack])
       (übHead (NVLTerm "p" []) (Stack []))
 
 testÜbEnvEmpty =
@@ -484,6 +484,8 @@ testÜbVarSeqAtmSeq =
             Push push (ATVar (V "Y") Nil),
             Push push (ATEndEnv 1),
             Unify unify (ATStr (A "p") 1),
+            Backtrack backtrack,
+            Unify unify (ATVar (V "Y") Nil),
             Backtrack backtrack,
             Push push ATChp,
             Push push (ATStr (A "q") 1),
@@ -538,14 +540,15 @@ testÜbVarSeqAtmWithVar =
       ( Stack
           [ Push push ATBegEnv,
             Push push (ATVar (V "X") Nil),
-            Push push (ATEndEnv 0),
+            Push push (ATEndEnv 1),
             Unify unify (ATStr (A "q") 1),
             Backtrack backtrack,
             Unify unify (ATVar (V "X") Nil),
+            Backtrack backtrack,
             Return returnL ATPos
           ]
       )
-      (stackTake 7 (genCode $ parse $ tokenize "q(X). :- p(X)."))
+      (stackTake 8 (codeGen $ parse $ tokenize "q(X). :- p(X)."))
 
 übTests =
   [ testÜbPushEmpty,
