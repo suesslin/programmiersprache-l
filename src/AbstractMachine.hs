@@ -83,7 +83,7 @@ data Argument
  ----------------------------}
 data Linearization = Linearization String Arity deriving (Eq, Show)
 
-data Exp = ExpLin Linearization | ExpSym Atom
+data Exp = ExpLin Linearization | ExpVar Variable deriving Show
 
 instance Show Variable where
   show (V str) = str
@@ -215,7 +215,7 @@ codeGen parsetree = üb parsetree (Stack [])
 
 -- übHead(Atom.)
 übHead :: NVLTerm -> (Zielcode -> Zielcode)
-übHead atom@(NVLTerm _ _) = übUnify [ExpLin $ linearize atom]
+übHead atom@(NVLTerm _ _) = übUnify (linearize atom)
 
 übBody :: [Literal] -> Zielcode -> Zielcode
 -- ÜbBody([not Atom | Sequenz])
@@ -223,7 +223,7 @@ codeGen parsetree = üb parsetree (Stack [])
   übBody
     seq
     $ übPush
-      [ExpLin $ linearize nvlt]
+      (linearize nvlt)
       (akk <> Stack [Push push ATNot, Push push ATChp])
       <> Stack
         [ Push push ATEndAtom,
@@ -236,7 +236,7 @@ codeGen parsetree = üb parsetree (Stack [])
 übBody ((Literal _ (LTNVar nvlt@(NVLTerm atom subatoms))) : seq) akk =
   übBody
     seq
-    $ übPush [ExpLin $ linearize nvlt] (akk <> Stack [Push push ATChp])
+    $ übPush (linearize nvlt) (akk <> Stack [Push push ATChp])
       <> Stack [Push push ATEndAtom, Call call, Backtrack backtrack]
 übBody [] akk = akk
 übBody _ _ = error "Failure in übBody."
@@ -254,7 +254,7 @@ type VariableCount = Int
 übPush :: [Exp] -> Zielcode -> Zielcode
 -- ÜbPush([])
 übPush [] akk = akk
-übPush [ExpSym (A sym)] akk = akk <> Stack [Push push (ATVar (V sym) Nil)]
+übPush [ExpVar var] akk = akk <> Stack [Push push (ATVar var Nil)]
 -- ÜbPush(Symbol/Arity)
 übPush [ExpLin (Linearization sym arity)] akk =
   akk <> Stack [Push push $ ATStr (A sym) arity]
@@ -262,16 +262,16 @@ type VariableCount = Int
 übPush (exp : seq) akk = übPush seq $ übPush [exp] akk
 
 übUnify :: [Exp] -> Zielcode -> Zielcode
--- übUnify(Symbol/Arity)
-übUnify [ExpLin (Linearization sym arity)] akk =
-  akk <> Stack [Unify unify (ATStr (A sym) arity)]
-übUnify [ExpSym (A sym)] akk =
-  akk <> Stack [Unify unify (ATVar (V sym) Nil)]
--- übUnify([Exp | Sequenz])
-übUnify (exp : seq) akk =
-  übUnify seq $ übUnify [exp] akk <> Stack [Backtrack backtrack]
 -- übUnify([])
 übUnify [] akk = akk
+-- übUnify(Symbol/Arity)
+übUnify (ExpLin (Linearization sym arity):rest) akk = 
+  übUnify rest (akk <> Stack [Unify unify (ATStr (A sym) arity),Backtrack backtrack])
+-- übUnify(Symbol)
+übUnify (ExpVar var:rest) akk =
+  übUnify rest (akk <> Stack [Unify unify (ATVar var Nil),Backtrack backtrack])
+
+
 
 {--------------------------------------------------------------
    Instruktionen
@@ -482,10 +482,16 @@ prompt ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
 -- Funktion zur Linearisierung von Atomen und Variablen
 
 -- lin(Atom) -> Linearisierung
-linearize :: NVLTerm -> Linearization
-linearize (NVLTerm atom []) = Linearization atom 0
-linearize (NVLTerm atom subatoms) = Linearization atom $ length subatoms
+linearize :: NVLTerm -> [Exp]
+linearize atom = linearizeNV atom []
 
+linearizeNV :: NVLTerm -> [Exp] -> [Exp] 
+linearizeNV (NVLTerm atom subatoms) akk = linearizeV subatoms (akk ++ [ExpLin $ Linearization atom $ length subatoms])
+
+linearizeV :: [LTerm] -> [Exp] -> [Exp]
+linearizeV [] akk = akk
+linearizeV (LTVar var:rest) akk = linearizeV rest (akk ++ [ExpVar (V var)])
+linearizeV (LTNVar atom:rest) akk = linearizeV rest (linearizeNV atom akk)
 -- Funktion zum finden einer Kelleradresse
 -- TODO Eventuell Problem, siehe Zulip; maybe refactor using takeWhile
 
