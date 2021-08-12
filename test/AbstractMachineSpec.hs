@@ -12,7 +12,10 @@ emptyZielcode = Stack []
 
 partialZielcode :: Zielcode
 partialZielcode = Stack [Unify unify (A "p"), Backtrack backtrackQ, Push push (A "q"), Call call, Backtrack backtrackQ, Return returnL]
-
+-}
+exampleZielcode :: Zielcode
+exampleZielcode = genCode $ parse $ tokenize "p(Y):-q(Y).q(a).q(b).:- p(X)."
+{-
 {--------------------------------------------------
     Tests for of genCode | üb
  --------------------------------------------------}
@@ -331,7 +334,15 @@ testCallCNilCase =
       "call should set I correctly when called on c == nil"
       ((True, Pointer 3, Pointer 0, Pointer 1, Pointer 17), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
       (call ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]) code)
-
+-}
+--(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), call doesn't change t,c,r,up,e,ut,tt,pc,sc,ac, nor the stacks us and trail therefor they can be Nil/Empty respectively
+testCallStackAtCNil =
+  TestCase $
+    assertEqual
+      "call should increase p by one and set B to True, when the c-th item in stack is Nil"
+      ((True,Nil, Pointer 2, Nil,Pointer 1,Nil,Nil,Nil,Nil,0,0,Nil), (Stack [CodeAddress (Pointer 1),CodeAddress Nil], Stack [], Stack []))
+      (call ((False,Nil, Pointer 2, Nil,Pointer 1,Nil,Nil,Nil,Nil,0,0,Nil), (Stack [CodeAddress (Pointer 1),CodeAddress Nil], Stack [], Stack [])) exampleZielcode)
+{-     
 -- p. 131
 testReturnLNotNilCase =
   TestCase $
@@ -689,7 +700,10 @@ pushTests =
     testPushBegEnv,
     testPushEndEnv
   ]
-
+callTests = 
+  [
+    testCallStackAtCNil
+  ]
 backtrackTests = 
   [ testBacktrackBTrue,
     testBacktrackBFalse
