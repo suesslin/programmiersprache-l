@@ -515,9 +515,9 @@ sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, s
  -}
 
 sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
+sAdd (regs, (Stack [], us, trail)) var modearg = Nil 
 sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack content), us, trail)) targetvar@(ATVar _ _) modearg =
   let stackpart@(Stack content') = Stack (takeWhile (not . isStackElemEndEnv) content)
-<<<<<<< Updated upstream
    in case modearg of
         ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar
         ATPush ->
@@ -525,14 +525,7 @@ sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack conten
             then sAddHelper stackpart targetvar
             else sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content')) targetvar
         _ -> error "sAdd was called with wrong modearg"
-=======
-    in case modearg of 
-      ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar 
-      ATPush  -> if unsafePointerFromStackAtLocation c stack == Nil then error "we're here" --sAddHelper stackpart targetvar
-                 else error $ show (c+1) --sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content')) targetvar 
-      _       -> error "sAdd was called with wrong modearg"
->>>>>>> Stashed changes
-sAdd _ _ _ = error "sAdd called on non variable"
+sAdd _ _ _ = error "sAdd called on non variable" 
 
 sAddHelper :: Stack StackElement -> Argument -> Pointer
 sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) =
@@ -895,7 +888,6 @@ pushD1D2 d1 d2 i arity weiter all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc,
 ---------------------------------------------------------------------}
 
 --Die Logik dahinter: Man lässt die Befehle durchlaufen und müsste dann bei einem korrekten Programm am Ende bei Prompt gelandet sein.
-<<<<<<< Updated upstream
 --Dann könnte man in der Main Methode prompt aufrufen und abhängig vom Resultat noch einmal auswertung aufrufen, aber eben mit den in Prompt angepassten werten.
 --Hoffe das geht so,
 -- TODO: Remove Trace as soon as everything works
@@ -923,23 +915,6 @@ initRegstack code =
   ( (False, Pointer 0, Nil, Nil, cGoal code, Nil, Nil, Nil, 0, 0, 0, Nil),
     (Stack [], Stack [], Stack [])
   )
-=======
---Dann könnte man in der Main Methode prompt aufrufen und abhängig vom Resultat noch einmal auswertung aufrufen, aber eben mit den in Prompt angepassten werten. 
---Hoffe das geht so, 
-auswertung :: RegisterKeller -> Zielcode -> RegisterKeller
-auswertung all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code = 
-  let command = stackItemAtLocation p code 
-  in case command of
-    Unify unify args -> auswertung (unify args all) code
-    Push push args -> auswertung (push args all code) code
-    Call call -> auswertung (call all code) code
-    Return returnL args -> auswertung (returnL args all) code
-    Backtrack backtrack -> auswertung (backtrack all code) code
-    Prompt prompt -> all
-
-starter:: Zielcode -> RegisterKeller
-starter code = ((False, Pointer (-1), Nil, Nil, cGoal code, Nil,Nil,Nil,0,0,0,Nil), (Stack [], Stack [], Stack [])) --TODO not sure if t isnt supposed to be -1 in our case
->>>>>>> Stashed changes
 
 promptWasCalled :: Zielcode -> RegisterKeller
 promptWasCalled code = auswerten (initRegstack code) code

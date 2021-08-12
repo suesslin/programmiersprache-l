@@ -387,15 +387,12 @@ testCallCNilCase =
       ((True, Pointer 3, Pointer 0, Pointer 1, Pointer 17), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
       (call ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]) code)
 -}
-<<<<<<< Updated upstream
 --call doesn't change t,c,r,up,e,ut,tt,pc,sc,ac, nor the stacks us and trail therefor they can be Nil/Empty respectively
-=======
 --(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), call doesn't change t,c,r,up,e,ut,tt,pc,sc,ac, nor the stacks us and trail therefor they can be Nil/Empty respectively
 
 callCode :: Zielcode 
 callCode = genCode $ parse $ tokenize "p. q. :- p(a)."
 
->>>>>>> Stashed changes
 testCallStackAtCNil =
   TestCase $
     assertEqual
