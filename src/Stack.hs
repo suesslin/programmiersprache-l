@@ -45,12 +45,20 @@ stackItemAtLocation :: (Integral a, Ord a) => a -> Stack b -> b
 stackItemAtLocation 0 (Stack content) = head content
 stackItemAtLocation pos (Stack content) = content !! fromIntegral (toInteger pos) -- this is a bit suboptimal
 
--- Replaces an element at a location
-stackReplaceAtLocation :: (Integral a, Ord a) => a -> b -> Stack b -> Stack b
-stackReplaceAtLocation i elem (Stack []) = Stack [elem]
-stackReplaceAtLocation i elem (Stack content) = 
-  let i' = fromIntegral (toInteger i)
-  in Stack $ concat [take i' content, [elem], drop (i' + 1) content]
+-- Replaces an element at a location | TODO : refactor this monster and find a better solution for padding
+stackReplaceAtLocation :: (Integral a, Ord a) => a -> b -> b -> Stack b -> Stack b
+stackReplaceAtLocation i elem paddingelem stack@(Stack content) = let len = length content 
+                                                                      i' = fromIntegral (toInteger i)
+                                                                  in  if i' > len 
+                                                                    then stackReplaceAtLocationHelper i' elem (rightPad (i'-1) paddingelem stack)
+                                                          else stackReplaceAtLocationHelper i' elem stack   
+
+stackReplaceAtLocationHelper :: Int -> b -> Stack b -> Stack b 
+stackReplaceAtLocationHelper i elem (Stack []) = Stack [elem]
+stackReplaceAtLocationHelper i elem (Stack content) = Stack $ concat [take i content, [elem], drop (i + 1) content]
+
+rightPad :: Int -> a -> Stack a -> Stack a  
+rightPad targetlen item (Stack content) = Stack (content ++ replicate (targetlen - length content) item)  
 
 stackWriteToLocation :: (Num a, Ord a) => a -> b -> Stack b -> Stack b
 stackWriteToLocation pos val (Stack []) = Stack [val]
