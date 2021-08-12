@@ -314,7 +314,36 @@ testUnifyUnunifiable =
       "unify should set registers accordingly when called on ununifiable clause."
       ((True, Pointer 7, Pointer 4, Pointer 5, Pointer 1), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 6), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")])
       (unify (A "p") ((False, Pointer 7, Pointer 4, Pointer 5, Pointer 0), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 6), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")]))
+-}
+--Tests für Unify Makroinstruktionen
+testAddAcNil = 
+  TestCase $
+    assertEqual
+      "addAc should return the stacks and register unchanged when ac = Nil"
+      ((False, Pointer 1, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Nil), (Stack [], Stack [], Stack []))
+      (addAC 5 ((False, Pointer 1, Pointer 2,Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Nil), (Stack [], Stack [], Stack [])))
 
+testAddAcNotNil = 
+  TestCase $
+    assertEqual
+      "addAc should return the stacks unchanged and add the first argument to ac when ac /= Nil"
+       ((False, Pointer 1, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 16), (Stack [], Stack [], Stack []))
+       (addAC 5 ((False, Pointer 1, Pointer 2,Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack [])))
+--  (b, t, c, r, p, up, e, ut, tt, pc, sc, ac), 
+testRestoreAcUpQAc0 =
+  TestCase $
+    assertEqual
+      "restoreAcUpQ should return the stacks unchanged and change the registers ac, up, ut when ac = 0"
+                    ((False, Pointer 1, Pointer 2, Pointer 3, Pointer 4, Pointer 107, Pointer 6, Pointer 5, Pointer 8, 9, 10, Pointer 106), (Stack [], Stack [CodeAddress (Pointer 100), CodeAddress (Pointer 101), CodeAddress (Pointer 102), CodeAddress (Pointer 103), CodeAddress (Pointer 104), CodeAddress (Pointer 105), CodeAddress (Pointer 106), CodeAddress (Pointer 107)], Stack []))
+      (restoreAcUpQ ((False, Pointer 1, Pointer 2,Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 0), (Stack [], Stack [CodeAddress (Pointer 100), CodeAddress (Pointer 101), CodeAddress (Pointer 102), CodeAddress (Pointer 103), CodeAddress (Pointer 104), CodeAddress (Pointer 105), CodeAddress (Pointer 106), CodeAddress (Pointer 107)], Stack [])))
+
+testRestoreAcUpQAcNot0 =
+  TestCase $
+    assertEqual
+      "restoreAcUpQ should return the stacks and registers unchanged when ac /= 0"
+                    ((False, Pointer 1, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack []))
+      (restoreAcUpQ ((False, Pointer 1, Pointer 2,Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack [])))
+{-
 -- First call instruction, p. 129
 testCallOnFirst =
   TestCase $
@@ -355,7 +384,7 @@ testCallCNilCase =
       ((True, Pointer 3, Pointer 0, Pointer 1, Pointer 17), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
       (call ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]) code)
 -}
---(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), call doesn't change t,c,r,up,e,ut,tt,pc,sc,ac, nor the stacks us and trail therefor they can be Nil/Empty respectively
+--call doesn't change t,c,r,up,e,ut,tt,pc,sc,ac, nor the stacks us and trail therefor they can be Nil/Empty respectively
 testCallStackAtCNil =
   TestCase $
     assertEqual
@@ -729,6 +758,13 @@ backtrackTests =
     testBacktrackBTrueWhileLoop,
     testBacktrackBTrueIfStackCNil,
     testBacktrackBFalse
+  ]
+unifyMakroTests = 
+  [
+    testAddAcNil,
+    testAddAcNotNil,
+    testRestoreAcUpQAc0,
+    testRestoreAcUpQAcNot0
   ]
 {- helpersTests =
   [ testCFirstPkAndZiel,
