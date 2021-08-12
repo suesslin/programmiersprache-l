@@ -2,6 +2,7 @@ module AbstractMachine where
 
 import Control.Exception
 import Data.Maybe (fromJust, fromMaybe)
+import Debug.Trace
 import Models
 import Parser
 import Stack
@@ -133,12 +134,6 @@ stackItemToInt (StackAddress x) = Just x
 stackItemToInt (UsAddress x) = Just x
 stackItemToInt (TrailAddress x) = Just x
 stackItemToInt _ = Nothing
-
--- Unsafe operation that gets the pointer from Stack stack at location i.
--- Can fail if i is out of range or if the item is no Pointer <=> Nothing (fromJust fails)
-unsafePointerFromStackAtLocation :: Pointer -> Stack StackElement -> Pointer
-unsafePointerFromStackAtLocation i stack =
-  fromJust . stackItemToInt $ stackItemAtLocation i stack
 
 safePointerFromStackAtLocation :: Pointer -> Stack StackElement -> Pointer
 safePointerFromStackAtLocation addr stack =
@@ -628,7 +623,7 @@ cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind "prompt" (transformN
 cGoal :: Zielcode -> Pointer
 cGoal (Stack code) = case stackLocationLastItemOfKind' "return" (transformN code 6) of
   (Just location) -> Pointer location +<- 1
-  Nothing -> Nil
+  Nothing -> Pointer 0
 
 -- the +1 is needed because start of goal is determined by checking the address of the last return statement
 
@@ -890,12 +885,15 @@ pushD1D2 d1 d2 i arity weiter all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc,
 --Die Logik dahinter: Man lässt die Befehle durchlaufen und müsste dann bei einem korrekten Programm am Ende bei Prompt gelandet sein.
 --Dann könnte man in der Main Methode prompt aufrufen und abhängig vom Resultat noch einmal auswertung aufrufen, aber eben mit den in Prompt angepassten werten.
 --Hoffe das geht so,
+-- TODO: Remove Trace as soon as everything works
 auswerten :: RegisterKeller -> Zielcode -> RegisterKeller
 auswerten
   rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   code =
     let cmd = stackItemAtLocation (pToInt p) code
-     in auswerten (executeCommand cmd rs code) code
+     in trace
+          ("I worked with:\n" ++ show cmd ++ "\n\n")
+          (auswerten (executeCommand cmd rs code) code)
 
 -- Execute command on register stack
 executeCommand :: Command -> (RegisterKeller -> (Zielcode -> RegisterKeller))
@@ -907,11 +905,11 @@ executeCommand cmd rs code = case cmd of
   Backtrack backtrack -> backtrack rs code
   Prompt prompt -> rs
 
-startAuswertung :: Zielcode -> RegisterKeller
-startAuswertung code =
+initRegstack :: Zielcode -> RegisterKeller
+initRegstack code =
   ( (False, Pointer 0, Nil, Nil, cGoal code, Nil, Nil, Nil, 0, 0, 0, Nil),
     (Stack [], Stack [], Stack [])
   )
 
 promptWasCalled :: Zielcode -> RegisterKeller
-promptWasCalled code = auswerten (startAuswertung code) code
+promptWasCalled code = auswerten (initRegstack code) code
