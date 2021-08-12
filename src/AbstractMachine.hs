@@ -133,6 +133,7 @@ stackItemToInt (CodeAddress x) = Just x
 stackItemToInt (StackAddress x) = Just x
 stackItemToInt (UsAddress x) = Just x
 stackItemToInt (TrailAddress x) = Just x
+stackItemToInt (CodeArg (ATVar str addr)) = Just addr
 stackItemToInt _ = Nothing
 
 safePointerFromStackAtLocation :: Pointer -> Stack StackElement -> Pointer
@@ -897,7 +898,7 @@ auswerten
   code =
     let cmd = stackItemAtLocation (pToInt p) code
      in trace
-          ("I worked with:\n" ++ show cmd ++ "\n\n")
+          ("I worked with:\n" ++ show cmd ++ "\nMy registers are:\n" ++ show rs)
           (auswerten (executeCommand cmd rs code) code)
 
 -- Execute command on register stack

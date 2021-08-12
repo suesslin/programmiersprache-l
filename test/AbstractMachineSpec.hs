@@ -332,7 +332,7 @@ testAddAcNotNil =
       "addAc should return the stacks unchanged and add the first argument to ac when ac /= Nil"
        ((False, Pointer 1, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 16), (Stack [], Stack [], Stack []))
        (addAC 5 ((False, Pointer 1, Pointer 2,Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack [])))
---  (b, t, c, r, p, up, e, ut, tt, pc, sc, ac), 
+
 testRestoreAcUpQAc0 =
   TestCase $
     assertEqual
@@ -346,6 +346,23 @@ testRestoreAcUpQAcNot0 =
       "restoreAcUpQ should return the stacks and registers unchanged when ac /= 0"
                     ((False, Pointer 1, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack []))
       (restoreAcUpQ ((False, Pointer 1, Pointer 2,Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack [])))
+--  (b, t, c, r, p, up, e, ut, tt, pc, sc, ac), 
+testSaveAcUpQ = 
+  TestCase $
+    assertEqual 
+      "saveAcUpQ should save the values of ac and up in us when up is smaller then the Pointer at c+5, the dereferenced up /= up and the arity of the dereferenced up in stack /= 0"
+      ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 0, Pointer 6, Pointer 9, Pointer 8, 9, 10, Pointer 0), (Stack [CodeArg (ATStr (A "x") 2),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [StackAddress (Pointer 11), StackAddress (Pointer 6)], Stack []))
+      (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), 
+      (Stack [CodeArg (ATStr (A "x") 2), 
+      CodeArg (ATVar (V "X") (Pointer 0)),
+      CodeArg (ATVar (V "X") (Pointer 1)),
+      CodeArg (ATVar (V "X") (Pointer 2)),
+      CodeArg (ATVar (V "X") (Pointer 3)),
+      CodeArg (ATVar (V "X") (Pointer 4)),
+      CodeArg (ATVar (V "X") (Pointer 5)),
+      CodeArg (ATVar (V "X") (Pointer 6)),
+      CodeArg (ATVar (V "X") (Pointer 7))
+      ], Stack [], Stack [])))
 {-
 -- First call instruction, p. 129
 testCallOnFirst =
@@ -782,7 +799,8 @@ unifyMakroTests =
     testAddAcNil,
     testAddAcNotNil,
     testRestoreAcUpQAc0,
-    testRestoreAcUpQAcNot0
+    testRestoreAcUpQAcNot0,
+    testSaveAcUpQ
   ]
 {- helpersTests =
   [ testCFirstPkAndZiel,
