@@ -1,6 +1,8 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Main where
 
-import AbstractMachine (genCode)
+import AbstractMachine (Zielcode, genCode, startAuswertung)
 import Parser
 import Tokenizer (tokenize)
 
@@ -48,8 +50,23 @@ main = do
   case outputType of
     Tokens -> print $ tokenize sourceCode
     ParsedProgram -> print . parse $ tokenize sourceCode
-    TranslatedProgram -> print . genCode . parse $ tokenize sourceCode
-    UnknownOutput -> error "Fehler: nicht aufgeführter Ausgabetyp eingefordert. "
+    TranslatedProgram -> handleTranslatedProgram (genCode . parse $ tokenize sourceCode)
+    UnknownOutput -> error "Fehler: nicht aufgeführter Ausgabetyp eingefordert."
+
+handleTranslatedProgram :: Zielcode -> IO ()
+handleTranslatedProgram code =
+  print code
+    >> putStrLn
+      ( "Was soll im Folgenden passieren?\n"
+          <> "  (1) Programm evaluieren\n"
+          <> "  (2) Programm beenden\n"
+          <> "\nBitte die passende Zahl eingeben\n"
+      )
+    >> getLine
+    >>= \case
+      "1" -> print $ startAuswertung code
+      "2" -> putStrLn "\nDas Programm wird beendet."
+      _ -> error "Fehler: unmöglicher nächster Schritt eingefordert."
 
 data OutputType = Tokens | ParsedProgram | TranslatedProgram | UnknownOutput
   deriving (Show)
