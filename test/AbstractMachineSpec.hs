@@ -347,22 +347,39 @@ testRestoreAcUpQAcNot0 =
                     ((False, Pointer 1, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack []))
       (restoreAcUpQ ((False, Pointer 1, Pointer 2,Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack [])))
 --  (b, t, c, r, p, up, e, ut, tt, pc, sc, ac), 
+saveAcUpStack :: MLStack
+saveAcUpStack = Stack [CodeArg (ATStr (A "x") 2), CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))]
+
+saveAcUpStackArity0 :: MLStack
+saveAcUpStackArity0 = Stack [CodeArg (ATStr (A "x") 0), CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))]
+
 testSaveAcUpQ = 
   TestCase $
     assertEqual 
       "saveAcUpQ should save the values of ac and up in us when up is smaller then the Pointer at c+5, the dereferenced up /= up and the arity of the dereferenced up in stack /= 0"
       ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 0, Pointer 6, Pointer 9, Pointer 8, 9, 10, Pointer 0), (Stack [CodeArg (ATStr (A "x") 2),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [StackAddress (Pointer 11), StackAddress (Pointer 6)], Stack []))
-      (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), 
-      (Stack [CodeArg (ATStr (A "x") 2), 
-      CodeArg (ATVar (V "X") (Pointer 0)),
-      CodeArg (ATVar (V "X") (Pointer 1)),
-      CodeArg (ATVar (V "X") (Pointer 2)),
-      CodeArg (ATVar (V "X") (Pointer 3)),
-      CodeArg (ATVar (V "X") (Pointer 4)),
-      CodeArg (ATVar (V "X") (Pointer 5)),
-      CodeArg (ATVar (V "X") (Pointer 6)),
-      CodeArg (ATVar (V "X") (Pointer 7))
-      ], Stack [], Stack [])))
+      (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (saveAcUpStack, Stack [], Stack [])))
+
+testSaveAcUpQUpBigger = 
+  TestCase $
+    assertEqual
+      "saveAcUp should not save the values of ac and up when up is bigger then the Pointer at c+5"
+      ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 7, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [CodeArg (ATStr (A "x") 2),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [], Stack []))
+      (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 7, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (saveAcUpStack, Stack [], Stack [])))
+
+testSaveAcUpQUpEqualsDerefUp = 
+  TestCase $
+    assertEqual
+      "saveAcUp should not save the values of ac and up when the dereferenced up /= up"
+      ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 0, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [CodeArg (ATStr (A "x") 2),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [], Stack []))
+      (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 0, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (saveAcUpStack, Stack [], Stack [])))
+
+testSaveAcUpQArityEquals0 = 
+  TestCase $
+    assertEqual
+      "saveAcUp should not save the values of ac and up when the the arity of the dereferenced up in stack /= 0"
+      ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [CodeArg (ATStr (A "x") 0),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [], Stack []))
+      (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (saveAcUpStackArity0, Stack [], Stack [])))
 {-
 -- First call instruction, p. 129
 testCallOnFirst =
@@ -800,7 +817,10 @@ unifyMakroTests =
     testAddAcNotNil,
     testRestoreAcUpQAc0,
     testRestoreAcUpQAcNot0,
-    testSaveAcUpQ
+    testSaveAcUpQ,
+    testSaveAcUpQUpBigger,
+    testSaveAcUpQUpEqualsDerefUp,
+    testSaveAcUpQArityEquals0
   ]
 {- helpersTests =
   [ testCFirstPkAndZiel,
