@@ -327,7 +327,7 @@ push ATEndAtom ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) 
   ( (b, t, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
     ( stackReplaceAtLocation
         (c +<- 5)
-        (CodeAddress t)
+        (StackAddress t)
         ( stackReplaceAtLocation
             (c +<- 2)
             (CodeAddress $ p +<- 3)

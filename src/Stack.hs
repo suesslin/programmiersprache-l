@@ -47,6 +47,7 @@ stackItemAtLocation pos (Stack content) = content !! fromIntegral (toInteger pos
 
 -- Replaces an element at a location
 stackReplaceAtLocation :: (Integral a, Ord a) => a -> b -> Stack b -> Stack b
+stackReplaceAtLocation i elem (Stack []) = Stack [elem]
 stackReplaceAtLocation i elem (Stack content) = 
   let i' = fromIntegral (toInteger i)
   in Stack $ concat [take i' content, [elem], drop (i' + 1) content]
