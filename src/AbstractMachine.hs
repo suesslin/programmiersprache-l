@@ -309,12 +309,12 @@ push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
     )
   )
 push ATBegEnv ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
-  ((b, t, c, r, p+<-1, up, Nil, ut, tt, pc, sc, ac), (stack, us, trail))
+  ((b, t, c, r, p +<- 1, up, Nil, ut, tt, pc, sc, ac), (stack, us, trail))
 push
   var@(ATVar sym _)
   rs@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   _ =
-    ( (b, t +<- 1, c, r, p+<-1, up, e, ut, tt, pc, sc, ac),
+    ( (b, t +<- 1, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
       ( stackReplaceAtLocation
           (pToInt $ t +<- 1)
           (CodeArg $ ATVar sym (sAdd rs var ATPush))
@@ -515,27 +515,29 @@ sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc =
 sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
  -}
 
-sAdd :: RegisterKeller -> Argument -> Argument -> Pointer 
-sAdd regkeller@((b,t,c,r,p,up,e,ut,tt,pc,sc,ac),(stack@(Stack content),us,trail)) targetvar@(ATVar _ _) modearg = 
+sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
+sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack content), us, trail)) targetvar@(ATVar _ _) modearg =
   let stackpart@(Stack content') = Stack (takeWhile (not . isStackElemEndEnv) content)
-    in case modearg of 
-      ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar 
-      ATPush  -> if safePointerFromStackAtLocation c stack == Nil then sAddHelper stackpart targetvar
-                 else sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content')) targetvar 
-      _       -> error "sAdd was called with wrong modearg"
+   in case modearg of
+        ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar
+        ATPush ->
+          if safePointerFromStackAtLocation c stack == Nil
+            then sAddHelper stackpart targetvar
+            else sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content')) targetvar
+        _ -> error "sAdd was called with wrong modearg"
 sAdd _ _ _ = error "sAdd called on non variable"
 
-sAddHelper :: Stack StackElement -> Argument -> Pointer 
-sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) = 
-  let stackpart' = stackPop stackpart 
-  in if isSameVariableName (CodeArg targetvar) (stackPeekBottom stackpart)   
-     then addr
-     else sAddHelper stackpart' targetvar 
+sAddHelper :: Stack StackElement -> Argument -> Pointer
+sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) =
+  let stackpart' = stackPop stackpart
+   in if isSameVariableName (CodeArg targetvar) (stackPeekBottom stackpart)
+        then addr
+        else sAddHelper stackpart' targetvar
 sAddHelper _ _ = error "Error in sAdd Helper"
 
-isSameVariableName :: StackElement -> StackElement -> Bool 
-isSameVariableName (CodeArg (ATVar symb1 _)) (CodeArg (ATVar symb2 _)) = symb1 == symb2 
-isSameVariableName _ _ = False 
+isSameVariableName :: StackElement -> StackElement -> Bool
+isSameVariableName (CodeArg (ATVar symb1 _)) (CodeArg (ATVar symb2 _)) = symb1 == symb2
+isSameVariableName _ _ = False
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
 
@@ -577,9 +579,9 @@ isStackElemEndEnv (CodeArg (ATEndEnv _)) = True
 isStackElemEndEnv _ = False
 
 {- isStackElemArg :: Argument -> StackElement -> Bool
-isStackElemArg givenarg (CodeArg (arg)) 
-  | arg == givenarg = True  
-  | otherwise = False 
+isStackElemArg givenarg (CodeArg (arg))
+  | arg == givenarg = True
+  | otherwise = False
 isStackElemArg _ _ = False  -}
 
 displayHelper :: MLStack -> MLStack -> Pointer -> String -> String
@@ -884,22 +886,32 @@ pushD1D2 d1 d2 i arity weiter all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc,
 {--------------------------------------------------------------------
               ML Auswertung
 ---------------------------------------------------------------------}
---Die Logik dahinter: Man lässt die Befehle durchlaufen und müsste dann bei einem korrekten Programm am Ende bei Prompt gelandet sein.
---Dann könnte man in der Main Methode prompt aufrufen und abhängig vom Resultat noch einmal auswertung aufrufen, aber eben mit den in Prompt angepassten werten. 
---Hoffe das geht so, 
-auswertung :: RegisterKeller -> Zielcode -> RegisterKeller
-auswertung all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code = 
-  let command = stackItemAtLocation (pToInt p) code 
-  in case command of
-    Unify unify args -> auswertung (unify args all) code
-    Push push args -> auswertung (push args all code) code
-    Call call -> auswertung (call all code) code
-    Return returnL args -> auswertung (returnL args all) code
-    Backtrack backtrack -> auswertung (backtrack all code) code
-    Prompt prompt -> all
 
-starter:: Zielcode -> RegisterKeller
-starter code = ((False, Pointer 0, Nil, Nil, cGoal code, Nil,Nil,Nil,0,0,0,Nil), (Stack [], Stack [], Stack []))
+--Die Logik dahinter: Man lässt die Befehle durchlaufen und müsste dann bei einem korrekten Programm am Ende bei Prompt gelandet sein.
+--Dann könnte man in der Main Methode prompt aufrufen und abhängig vom Resultat noch einmal auswertung aufrufen, aber eben mit den in Prompt angepassten werten.
+--Hoffe das geht so,
+auswerten :: RegisterKeller -> Zielcode -> RegisterKeller
+auswerten
+  rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
+  code =
+    let cmd = stackItemAtLocation (pToInt p) code
+     in auswerten (executeCommand cmd rs code) code
+
+-- Execute command on register stack
+executeCommand :: Command -> (RegisterKeller -> (Zielcode -> RegisterKeller))
+executeCommand cmd rs code = case cmd of
+  Unify unify args -> unify args rs
+  Push push args -> push args rs code
+  Call call -> call rs code
+  Return returnL args -> returnL args rs
+  Backtrack backtrack -> backtrack rs code
+  Prompt prompt -> rs
+
+startAuswertung :: Zielcode -> RegisterKeller
+startAuswertung code =
+  ( (False, Pointer 0, Nil, Nil, cGoal code, Nil, Nil, Nil, 0, 0, 0, Nil),
+    (Stack [], Stack [], Stack [])
+  )
 
 promptWasCalled :: Zielcode -> RegisterKeller
-promptWasCalled code = auswertung (starter code) code
+promptWasCalled code = auswerten (startAuswertung code) code
