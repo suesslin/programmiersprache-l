@@ -185,6 +185,8 @@ initialUs = stackNewEmpty
 initialTrail :: Stack StackElement 
 initialTrail = stackNewEmpty 
 
+--TODO important note; c must be init with -1 (same reason as for t)
+
 pushTestRegs :: RegisterKeller 
 pushTestRegs = ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 0, Nil, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil), 
       (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail))
@@ -205,8 +207,8 @@ testPushSTR =
     assertEqual 
       "push Str symb arity should update stack location t+1 with said Str Cell, then increase t by 1."
       ((False, Pointer 0, Nil, Nil, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Pointer 0), 
-        (Stack [CodeArg (ATStr (A "p") 1)], initialUs, initialTrail))
-      (push (ATStr (A "p") 1) (initialML pushTestCode) pushTestCode)
+        (Stack [CodeArg (ATStr (A "p") 0)], initialUs, initialTrail))
+      (push (ATStr (A "p") 0) (initialML pushTestCode) pushTestCode)
 
 testPushVAR = 
   TestCase $ 
@@ -221,9 +223,9 @@ testPushCHP =
   TestCase $ 
     assertEqual 
       "push chp should update stack an registers accordingly."
-      ((False, Pointer 5, Pointer 0, Pointer 1, Pointer 1, Pointer 6, Nil, Pointer 0, Pointer 0, 0, 0, Nil), 
-      (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress Nil, StackAddress Nil, StackAddress (Pointer 0)], initialUs, initialTrail))
-      (push ATChp (initialML pushTestCode) pushTestCode') 
+      ((False, Pointer 5, Pointer 0, Pointer 1, Pointer 1, Pointer 6, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil), 
+        (Stack [CodeAddress (Pointer 2), CodeAddress (Pointer 0), StackAddress (Pointer 1), StackAddress (Pointer 1), TrailAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail))
+      (push ATChp pushTestRegs pushTestCode') 
 
 testPushEndAtom = 
   TestCase $ 
@@ -244,7 +246,8 @@ testPushEndEnv =
   TestCase $ 
     assertEqual 
       "push EndEnv n should set stack and registers accordingly (set e pointer, iterate t, set EndEnv StackArgument)."
-      ((False, Pointer 6, Pointer 0, Pointer 0, Pointer 1, Nil, Pointer 3, Pointer 0, Pointer 0, 0, 0, Nil), (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 3), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer (-1)), CodeArg (ATEndEnv 1)], initialUs, initialTrail))
+      ((False, Pointer 6, Pointer 0, Pointer 0, Pointer 1, Nil, Pointer 5, Pointer 0, Pointer 0, 0, 0, Nil), 
+        (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 0), CodeArg (ATEndEnv 1)], initialUs, initialTrail))
       (push (ATEndEnv 1) pushTestRegsEndEnv zielcodeEmptyML)
 
 stackBacktrackTestML = Stack [StackAddress (Pointer 0), CodeAddress (Pointer 1), CodeAddress (Pointer 3), StackAddress (Pointer 3), StackAddress (Pointer 4),
@@ -384,13 +387,30 @@ testCallCNilCase =
       ((True, Pointer 3, Pointer 0, Pointer 1, Pointer 17), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")])
       (call ((False, Pointer 3, Pointer 0, Pointer 1, Pointer 16), Stack [CodeAddress Nil, StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p")]) code)
 -}
+<<<<<<< Updated upstream
 --call doesn't change t,c,r,up,e,ut,tt,pc,sc,ac, nor the stacks us and trail therefor they can be Nil/Empty respectively
+=======
+--(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), call doesn't change t,c,r,up,e,ut,tt,pc,sc,ac, nor the stacks us and trail therefor they can be Nil/Empty respectively
+
+callCode :: Zielcode 
+callCode = genCode $ parse $ tokenize "p. q. :- p(a)."
+
+>>>>>>> Stashed changes
 testCallStackAtCNil =
   TestCase $
     assertEqual
       "call should increase p by one and set B to True, when the c-th item in stack is Nil"
-      ((True,Nil, Pointer 2, Nil,Pointer 1,Nil,Nil,Nil,Nil,0,0,Nil), (Stack [CodeAddress (Pointer 1),CodeAddress Nil], Stack [], Stack []))
-      (call ((False,Nil, Pointer 2, Nil,Pointer 1,Nil,Nil,Nil,Nil,0,0,Nil), (Stack [CodeAddress (Pointer 1),CodeAddress Nil], Stack [], Stack [])) exampleZielcode)
+      ((True,Nil, Pointer 1, Nil,Pointer 2,Nil,Nil,Nil,Nil,0,0,Nil), (Stack [CodeAddress (Pointer 1),CodeAddress Nil], Stack [], Stack []))
+      (call ((False,Nil, Pointer 1, Nil,Pointer 1,Nil,Nil,Nil,Nil,0,0,Nil), (Stack [CodeAddress (Pointer 1),CodeAddress Nil], Stack [], Stack [])) exampleZielcode)
+
+testCallElseCase = 
+  TestCase $ 
+    assertEqual 
+      "call should set p to stack (c), then set stack (c) to c_next of current stack(c) value."
+      ((False, Pointer 2, Pointer 1, Pointer 1, Pointer 5, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0), 
+        (Stack [StackAddress (Pointer 0), CodeAddress (Pointer 7)], initialUs, initialTrail))
+      (call ((False, Pointer 2, Pointer 1, Pointer 1, Pointer 2, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0), (Stack [StackAddress (Pointer 0), CodeAddress (Pointer 5)], initialUs, initialTrail)) callCode)
+
 {-     
 -- p. 131
 testReturnLNotNilCase =
@@ -751,7 +771,8 @@ pushTests =
   ]
 callTests = 
   [
-    testCallStackAtCNil
+    testCallStackAtCNil,
+    testCallElseCase
   ]
 backtrackTests = 
   [ testBacktrackBTrue,

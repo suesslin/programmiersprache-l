@@ -278,8 +278,7 @@ push
   ( (b, t, c, r, p, up, e, ut, tt, pc, sc, ac),
     (stack, us, trail)
     )
-  _ =
-    ( (b, t +<- 1, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
+  _ =   ( (b, t +<- 1, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
       ( stackReplaceAtLocation
           (t +<- 1)
           (CodeArg arg)
@@ -287,18 +286,24 @@ push
         us,
         trail
       )
-    )
+    ) 
 -- Push CHP
 push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code =
-  ( (b, t +<- 7, t +<- 1, t +<- 2, p +<- 1, t + 7, e, ut, tt, pc, sc, ac),
-    ( stackReplaceAtLocation
-        (t +<- 2)
-        (CodeAddress c)
-        ( stackReplaceAtLocation
-            (t +<- 1)
-            (CodeAddress $ cFirst code)
-            stack
-        ),
+  ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e, 0, tt, 0, sc, Nil),
+    ( stackReplaceAtLocation 
+        (t +<- 5)
+        (TrailAddress tt)
+        (stackReplaceAtLocation
+          (t +<- 4)
+          (StackAddress e)
+            (stackReplaceAtLocation
+              (t +<- 2)
+              (CodeAddress c)
+                ( stackReplaceAtLocation
+                  (t +<- 1)
+                  (CodeAddress $ cFirst code)
+                    stack
+        ))),
       us,
       trail
     )
@@ -311,8 +316,8 @@ push
   _ =
     ( (b, t +<- 1, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
       ( stackReplaceAtLocation
-          (pToInt $ t +<- 1)
-          (CodeArg $ ATVar sym (sAdd rs var ATPush))
+          (t +<- 1)
+          (CodeArg $ ATVar sym  (sAdd rs var ATPush))
           stack,
         us,
         trail
@@ -332,10 +337,9 @@ push ATEndAtom ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) 
       trail
     )
   )
-push (ATEndEnv n) (regs@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
-  ( (b, t, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
-    ( stackReplaceAtLocation (c +<- 5) (CodeAddress t) $
-        stackReplaceAtLocation (c +<- 2) (CodeAddress $ p +<- 3) stack,
+push arg@(ATEndEnv n) (regs@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
+  ( (b, t +<- 1, c, r, p +<- 1, up, (t +<- 1) -<- n, ut, tt, pc, sc, ac),
+    ( stackReplaceAtLocation (t +<- 1) (CodeArg arg) stack, 
       us,
       trail
     )
@@ -350,7 +354,7 @@ call ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) cod
     else
       let p' = safePointerFromStackAtLocation c stack
           stacks' =
-            ( stackWriteToLocation
+            ( stackReplaceAtLocation
                 c
                 (CodeAddress (cNext code (safePointerFromStackAtLocation c stack)))
                 stack,
@@ -513,6 +517,7 @@ sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, s
 sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
 sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack content), us, trail)) targetvar@(ATVar _ _) modearg =
   let stackpart@(Stack content') = Stack (takeWhile (not . isStackElemEndEnv) content)
+<<<<<<< Updated upstream
    in case modearg of
         ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar
         ATPush ->
@@ -520,6 +525,13 @@ sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack conten
             then sAddHelper stackpart targetvar
             else sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content')) targetvar
         _ -> error "sAdd was called with wrong modearg"
+=======
+    in case modearg of 
+      ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar 
+      ATPush  -> if unsafePointerFromStackAtLocation c stack == Nil then error "we're here" --sAddHelper stackpart targetvar
+                 else error $ show (c+1) --sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content')) targetvar 
+      _       -> error "sAdd was called with wrong modearg"
+>>>>>>> Stashed changes
 sAdd _ _ _ = error "sAdd called on non variable"
 
 sAddHelper :: Stack StackElement -> Argument -> Pointer
@@ -883,6 +895,7 @@ pushD1D2 d1 d2 i arity weiter all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc,
 ---------------------------------------------------------------------}
 
 --Die Logik dahinter: Man lässt die Befehle durchlaufen und müsste dann bei einem korrekten Programm am Ende bei Prompt gelandet sein.
+<<<<<<< Updated upstream
 --Dann könnte man in der Main Methode prompt aufrufen und abhängig vom Resultat noch einmal auswertung aufrufen, aber eben mit den in Prompt angepassten werten.
 --Hoffe das geht so,
 -- TODO: Remove Trace as soon as everything works
@@ -910,6 +923,23 @@ initRegstack code =
   ( (False, Pointer 0, Nil, Nil, cGoal code, Nil, Nil, Nil, 0, 0, 0, Nil),
     (Stack [], Stack [], Stack [])
   )
+=======
+--Dann könnte man in der Main Methode prompt aufrufen und abhängig vom Resultat noch einmal auswertung aufrufen, aber eben mit den in Prompt angepassten werten. 
+--Hoffe das geht so, 
+auswertung :: RegisterKeller -> Zielcode -> RegisterKeller
+auswertung all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code = 
+  let command = stackItemAtLocation p code 
+  in case command of
+    Unify unify args -> auswertung (unify args all) code
+    Push push args -> auswertung (push args all code) code
+    Call call -> auswertung (call all code) code
+    Return returnL args -> auswertung (returnL args all) code
+    Backtrack backtrack -> auswertung (backtrack all code) code
+    Prompt prompt -> all
+
+starter:: Zielcode -> RegisterKeller
+starter code = ((False, Pointer (-1), Nil, Nil, cGoal code, Nil,Nil,Nil,0,0,0,Nil), (Stack [], Stack [], Stack [])) --TODO not sure if t isnt supposed to be -1 in our case
+>>>>>>> Stashed changes
 
 promptWasCalled :: Zielcode -> RegisterKeller
 promptWasCalled code = auswerten (initRegstack code) code
