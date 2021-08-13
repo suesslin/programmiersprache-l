@@ -108,7 +108,6 @@ data StackElement
   deriving (Eq)
 
 instance Show StackElement where
-  show (CodeAddress Nil) = "nil"
   show (CodeAddress adr) = "c" ++ show adr
   show (StackAddress adr) = "s" ++ show adr
   show (UsAddress adr) = "u" ++ show adr
@@ -295,26 +294,28 @@ push
 -- Push CHP
 push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code =
   ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e, 0, tt, 0, sc, Nil),
-    ( stackReplaceAtLocationMLStack
-        (t +<- 5)
-        (TrailAddress tt)
-        ( stackReplaceAtLocationMLStack
+    (stackPush 
+      (StackAddress 9999)
+      (stackPush 
+      (StackAddress 9999)
+        (stackReplaceAtLocationMLStack 
+          (t +<- 5)
+          (TrailAddress tt)
+          (stackReplaceAtLocationMLStack
             (t +<- 4)
             (StackAddress e)
-            ( stackReplaceAtLocationMLStack
-                (t +<- 2)
-                (CodeAddress c)
-                ( stackReplaceAtLocationMLStack
-                    (t +<- 1)
-                    (CodeAddress $ cFirst code)
-                    stack
-                )
-            )
-        ),
+              (stackReplaceAtLocationMLStack
+              (t +<- 2)
+              (CodeAddress c) 
+              ( stackReplaceAtLocationMLStack
+                (t +<- 1)
+                (CodeAddress $ cFirst code)
+                stack
+        ))))),
       us,
       trail
     )
-  )
+  ) 
 push ATBegEnv ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
   ((b, t, c, r, p +<- 1, up, Nil, ut, tt, pc, sc, ac), (stack, us, trail))
 push
@@ -501,7 +502,7 @@ linearizeV (LTNVar atom : rest) akk = linearizeV rest (linearizeNV atom akk)
 -- TODO Eventuell Problem, siehe Zulip; maybe refactor using takeWhile
 -- TODO decide on solution version
 
-{- sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
+{- {- sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
 sAdd
   all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   symb
@@ -519,6 +520,32 @@ sAddHelper (reg, stacks@(stack, us, trail)) (CodeArg (ATEndEnv _)) currentLoc = 
 sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc =
   sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
 sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
+ -}
+
+sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
+sAdd (regs, (Stack [], us, trail)) var modearg = Nil 
+sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack content), us, trail)) targetvar@(ATVar _ _) modearg = Nil
+{-    let stackpart@(Stack content') = Stack (takeWhile (not . isStackElemEndEnv) content)
+   in case modearg of
+        ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar
+        ATPush ->
+          if safePointerFromStackAtLocation c stack == Nil
+            then sAddHelper stackpart targetvar
+            else error $ show content ++ "           " ++ show stackpart ++ "hwllo"--sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content)) targetvar
+        _ -> error "sAdd was called with wrong modearg"
+sAdd _ _ _ = error "sAdd called on non variable"  -}
+
+sAddHelper :: Stack StackElement -> Argument -> Pointer
+sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) = 
+   let stackpart' = error $ show stackpart ++ show (stackPeekBottom stackpart)--stackPop stackpart
+   in if isSameVariableName (CodeArg targetvar) (stackPeekBottom stackpart)
+        then error "first" --addr
+        else error "snd" --sAddHelper stackpart' targetvar
+sAddHelper _ _ = error "Error in sAdd Helper" 
+
+isSameVariableName :: StackElement -> StackElement -> Bool
+isSameVariableName (CodeArg (ATVar symb1 _)) (CodeArg (ATVar symb2 _)) = symb1 == symb2
+isSameVariableName _ _ = False
  -}
 
 sAdd :: RegisterKeller -> Argument -> Argument -> SAddAdd
@@ -549,9 +576,9 @@ sAddWhile
   symArg
   (add, i)
     | not $ isStackAtLocationEndEnv i stack && isPNil add =
-      trace "So far so good..." $
-        sAddWhile rs symArg (sAddNewAddIfVar i add symArg stack, i +<- 1)
-    | otherwise = trace "A sad otherwise" add
+         trace "So far so good..." $
+        sAddWhile rs symArg (sAddNewAddIfVar i add symArg stack, i +<- 1)  
+    | otherwise = trace "A sad otherwise" (i -<- 1) -- this is debateable but makes function result fit S 147 example
 
 isStackAtLocationEndEnv :: Pointer -> MLStack -> Bool
 isStackAtLocationEndEnv _ (Stack []) = False
@@ -641,14 +668,14 @@ transformN :: [Command] -> Int -> Stack String
 transformN code amount = Stack (map (take amount . show) code)
 
 cFirst :: Zielcode -> Pointer
-cFirst (Stack code) = Pointer $ stackLocationFirstItemOfKind "unify" (transformN code 5)
+cFirst (Stack code) = Pointer $ stackLocationFirstItemOfKind "pushML ATBeg" (transformN code 12)
 
 cNext :: Zielcode -> Pointer -> Pointer
 cNext (Stack code) Nil = Nil
 cNext (Stack code) p@(Pointer address) =
-  case stackLocationFirstItemOfKind' "unify" (transformN (drop (address + 1) code) 5) of
+  case stackLocationFirstItemOfKind' "pushML ATBeg" (transformN (drop (address + 1) code) 12) of
     (Just relativeItemLocation) -> (p +<- 1) + Pointer relativeItemLocation
-    Nothing -> Nil
+    Nothing -> Pointer 0 
 
 cLast :: Zielcode -> Pointer
 cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind "prompt" (transformN code 6)
@@ -951,7 +978,7 @@ executeCommand cmd rs code = case cmd of
 
 initRegstack :: Zielcode -> RegisterKeller
 initRegstack code =
-  ( (False, Pointer 0, Nil, Nil, cGoal code, Nil, Nil, Nil, 0, 0, 0, Nil),
+  ( (False, Pointer (-1), Nil, Nil, cGoal code, Nil, Nil, Nil, 0, 0, 0, Nil),
     (Stack [], Stack [], Stack [])
   )
 
