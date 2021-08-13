@@ -141,7 +141,6 @@ safePointerFromStackAtLocation :: Pointer -> Stack StackElement -> Pointer
 safePointerFromStackAtLocation addr stack =
   fromMaybe Nil (stackItemToInt $ stackItemAtLocation addr stack)
 
-
 stackReplaceAtLocationMLStack i elem = stackReplaceAtLocation i elem (StackAddress Nil)
 
 -- Commands, necessary for having a List of named partially applied functions
@@ -283,7 +282,8 @@ push
   ( (b, t, c, r, p, up, e, ut, tt, pc, sc, ac),
     (stack, us, trail)
     )
-  _ =   ( (b, t +<- 1, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
+  _ =
+    ( (b, t +<- 1, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
       ( stackReplaceAtLocationMLStack
           (t +<- 1)
           (CodeArg arg)
@@ -298,17 +298,19 @@ push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
     ( stackReplaceAtLocationMLStack
         (t +<- 5)
         (TrailAddress tt)
-        (stackReplaceAtLocationMLStack
-          (t +<- 4)
-          (StackAddress e)
-            (stackReplaceAtLocationMLStack
-              (t +<- 2)
-              (CodeAddress c)
+        ( stackReplaceAtLocationMLStack
+            (t +<- 4)
+            (StackAddress e)
+            ( stackReplaceAtLocationMLStack
+                (t +<- 2)
+                (CodeAddress c)
                 ( stackReplaceAtLocationMLStack
-                  (t +<- 1)
-                  (CodeAddress $ cFirst code)
+                    (t +<- 1)
+                    (CodeAddress $ cFirst code)
                     stack
-        ))),
+                )
+            )
+        ),
       us,
       trail
     )
@@ -322,7 +324,7 @@ push
     ( (b, t +<- 1, c, r, p +<- 1, up, e, ut, tt, pc, sc, ac),
       ( stackReplaceAtLocationMLStack
           (t +<- 1)
-          (CodeArg $ ATVar sym  (sAdd rs var ATPush))
+          (CodeArg $ ATVar sym (sAdd rs var ATPush))
           stack,
         us,
         trail
@@ -519,30 +521,51 @@ sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc =
 sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
  -}
 
-sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
-sAdd (regs, (Stack [], us, trail)) var modearg = Nil
-sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack content), us, trail)) targetvar@(ATVar _ _) modearg =
-  let stackpart@(Stack content') = Stack (takeWhile (not . isStackElemEndEnv) content)
-   in case modearg of
-        ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar
-        ATPush ->
-          if safePointerFromStackAtLocation c stack == Nil
-            then sAddHelper stackpart targetvar
-            else sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content')) targetvar
-        _ -> error "sAdd was called with wrong modearg"
-sAdd _ _ _ = error "sAdd called on non variable"
+sAdd :: RegisterKeller -> Argument -> Argument -> SAddAdd
+sAdd rs symbArg mode = sAddWhile rs symbArg (sAddHandleMode rs mode (Nil, Pointer 0))
 
-sAddHelper :: Stack StackElement -> Argument -> Pointer
-sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) =
-  let stackpart' = stackPop stackpart
-   in if isSameVariableName (CodeArg targetvar) (stackPeekBottom stackpart)
-        then addr
-        else sAddHelper stackpart' targetvar
-sAddHelper _ _ = error "Error in sAdd Helper"
+type SAddI = Pointer
 
-isSameVariableName :: StackElement -> StackElement -> Bool
-isSameVariableName (CodeArg (ATVar symb1 _)) (CodeArg (ATVar symb2 _)) = symb1 == symb2
-isSameVariableName _ _ = False
+type SAddAdd = Pointer
+
+sAddHandleMode :: RegisterKeller -> Argument -> (SAddAdd, SAddI) -> (SAddAdd, SAddI)
+sAddHandleMode
+  ((_, _, c, _, _, _, e, _, _, _, _, _), (stack, _, _))
+  mode
+  (add, i) = trace "a sad(d) handler" $
+    case mode of
+      ATUnify -> trace "Unify me" (add, e)
+      ATPush ->
+        trace "Push me" $
+          if isPNil c
+            then trace "So what" (Nil, i)
+            else trace "Else!" (add, safePointerFromStackAtLocation (c +<- 3) stack)
+      _ -> error "Unexpected mode in sAdd"
+
+sAddWhile :: RegisterKeller -> Argument -> (SAddAdd, SAddI) -> SAddAdd
+sAddWhile (rs, (Stack [], us, trail)) _ _ = Nil
+sAddWhile
+  rs@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
+  symArg
+  (add, i)
+    | not $ isStackAtLocationEndEnv i stack && isPNil add =
+      trace "So far so good..." $
+        sAddWhile rs symArg (sAddNewAddIfVar i add symArg stack, i +<- 1)
+    | otherwise = trace "A sad otherwise" add
+
+isStackAtLocationEndEnv :: Pointer -> MLStack -> Bool
+isStackAtLocationEndEnv _ (Stack []) = False
+isStackAtLocationEndEnv i stack = isStackElemEndEnv $ stackItemAtLocation i stack
+
+sAddNewAddIfVar ::
+  SAddI -> SAddAdd -> Argument -> MLStack -> SAddAdd
+sAddNewAddIfVar _ add _ (Stack []) = trace "var1" add
+sAddNewAddIfVar i add (ATVar (V argSym) _) stack = trace "var2" $
+  case stackItemAtLocation i stack of
+    (CodeArg (ATVar (V stackSym) addr)) ->
+      if argSym == stackSym then addr else add
+    _ -> add
+sAddNewAddIfVar _ _ _ _ = error "Unexpected call in sAddNewAddIfvar"
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
 
@@ -786,7 +809,6 @@ sameSymbolForStr :: Argument -> RegisterKeller -> Bool
 sameSymbolForStr arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   sameSymbolForArgs (stackItemAtLocation (deref stack up) stack) (CodeArg arg)
 
-
 sameSymbolForArgs :: StackElement -> StackElement -> Bool
 sameSymbolForArgs (CodeArg (ATStr (A str) arity)) (CodeArg (ATStr (A str2) arity2)) = str == str2
 sameSymbolForArgs (CodeArg (ATStr (A str) arity)) (CodeArg (ATVar (V str2) pointer)) = map toLower str == map toLower str2
@@ -794,12 +816,11 @@ sameSymbolForArgs (CodeArg (ATVar (V str) pointer)) (CodeArg (ATStr (A str2) ari
 sameSymbolForArgs (CodeArg (ATVar (V str) pointer)) (CodeArg (ATVar (V str2) arity2)) = str == str2
 sameSymbolForArgs _ _ = error "Der Rest wird meines erachtens nicht gebraucht."
 
-
 --Adds the Argument as a Var to the stack and as a Str to the top of stack, adds an address pointing at the dereferenced unification point to the trail, updates the tops of the stacks modiefied and sets the pushcounter to the arity of the pushed cell
 addToStackAndTrailStr :: Argument -> RegisterKeller -> RegisterKeller
 addToStackAndTrailStr arg@(ATStr (A str) arity) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   ( (b, t +<- 1, c, r, p, up, e, ut, tt +<- 1, arity, sc, ac),
-    ( stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) $ stackReplaceAtLocationMLStack (deref stack up) (changePointer (t+<-1) $ getDereferencedUp all) stack,
+    ( stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) $ stackReplaceAtLocationMLStack (deref stack up) (changePointer (t +<- 1) $ getDereferencedUp all) stack,
       us,
       stackReplaceAtLocationMLStack (tt +<- 1) (StackAddress (deref stack up)) trail
     )
