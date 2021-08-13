@@ -2,7 +2,7 @@
 
 module Main where
 
-import AbstractMachine (Zielcode, auswerten, genCode, initRegstack)
+import AbstractMachine (Zielcode, auswerten, genCode, initRegstack, prompt)
 import Parser
 import Tokenizer (tokenize)
 
@@ -64,9 +64,13 @@ handleTranslatedProgram code =
       )
     >> getLine
     >>= \case
-      "1" -> print $ auswerten (initRegstack code) code
+      "1" -> handleEvaluation code
       "2" -> putStrLn "\nDas Programm wird beendet."
       _ -> error "Fehler: unmöglicher nächster Schritt eingefordert."
+
+handleEvaluation :: Zielcode -> IO ()
+handleEvaluation code =
+  prompt (auswerten (initRegstack code) code) code
 
 data OutputType = Tokens | ParsedProgram | TranslatedProgram | UnknownOutput
   deriving (Show)

@@ -294,28 +294,32 @@ push
 -- Push CHP
 push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code =
   ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e, 0, tt, 0, sc, Nil),
-    (stackPush 
-      (StackAddress 9999)
-      (stackPush 
-      (StackAddress 9999)
-        (stackReplaceAtLocationMLStack 
-          (t +<- 5)
-          (TrailAddress tt)
-          (stackReplaceAtLocationMLStack
-            (t +<- 4)
-            (StackAddress e)
-              (stackReplaceAtLocationMLStack
-              (t +<- 2)
-              (CodeAddress c) 
-              ( stackReplaceAtLocationMLStack
-                (t +<- 1)
-                (CodeAddress $ cFirst code)
-                stack
-        ))))),
+    ( stackPush
+        (StackAddress 9999)
+        ( stackPush
+            (StackAddress 9999)
+            ( stackReplaceAtLocationMLStack
+                (t +<- 5)
+                (TrailAddress tt)
+                ( stackReplaceAtLocationMLStack
+                    (t +<- 4)
+                    (StackAddress e)
+                    ( stackReplaceAtLocationMLStack
+                        (t +<- 2)
+                        (CodeAddress c)
+                        ( stackReplaceAtLocationMLStack
+                            (t +<- 1)
+                            (CodeAddress $ cFirst code)
+                            stack
+                        )
+                    )
+                )
+            )
+        ),
       us,
       trail
     )
-  ) 
+  )
 push ATBegEnv ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
   ((b, t, c, r, p +<- 1, up, Nil, ut, tt, pc, sc, ac), (stack, us, trail))
 push
@@ -470,15 +474,22 @@ backtrackReplace
 -- Prompt für ML
 
 prompt :: RegisterKeller -> Zielcode -> IO ()
-prompt ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
+prompt ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) code
   | b = putStrLn "no (more) solutions"
-  | otherwise = do
-    putStrLn $ display stack
-    putStrLn "more?"
-    answer <- getLine
-    if answer == ";"
-      then callFromPrompt ((True, t, c, r, p -<- 1, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
-      else print "Wrong input, aborting."
+  | otherwise =
+    putStrLn (display stack)
+      >> putStrLn "more?"
+      >> getLine
+      >>= \answer ->
+        if answer == ";"
+          then
+            prompt
+              ( auswerten
+                  ((True, t, c, r, p -<- 1, up, e, ut, tt, pc, sc, ac), stacks)
+                  code
+              )
+              code
+          else print "Wrong input, aborting."
 
 {----------------------------------------------------------------------
   Hilfsfunktionen für ML
@@ -523,7 +534,7 @@ sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, s
  -}
 
 sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
-sAdd (regs, (Stack [], us, trail)) var modearg = Nil 
+sAdd (regs, (Stack [], us, trail)) var modearg = Nil
 sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack content), us, trail)) targetvar@(ATVar _ _) modearg = Nil
 {-    let stackpart@(Stack content') = Stack (takeWhile (not . isStackElemEndEnv) content)
    in case modearg of
@@ -536,12 +547,12 @@ sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack conten
 sAdd _ _ _ = error "sAdd called on non variable"  -}
 
 sAddHelper :: Stack StackElement -> Argument -> Pointer
-sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) = 
+sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) =
    let stackpart' = error $ show stackpart ++ show (stackPeekBottom stackpart)--stackPop stackpart
    in if isSameVariableName (CodeArg targetvar) (stackPeekBottom stackpart)
         then error "first" --addr
         else error "snd" --sAddHelper stackpart' targetvar
-sAddHelper _ _ = error "Error in sAdd Helper" 
+sAddHelper _ _ = error "Error in sAdd Helper"
 
 isSameVariableName :: StackElement -> StackElement -> Bool
 isSameVariableName (CodeArg (ATVar symb1 _)) (CodeArg (ATVar symb2 _)) = symb1 == symb2
@@ -576,8 +587,8 @@ sAddWhile
   symArg
   (add, i)
     | not $ isStackAtLocationEndEnv i stack && isPNil add =
-         trace "So far so good..." $
-        sAddWhile rs symArg (sAddNewAddIfVar i add symArg stack, i +<- 1)  
+      trace "So far so good..." $
+        sAddWhile rs symArg (sAddNewAddIfVar i add symArg stack, i +<- 1)
     | otherwise = trace "A sad otherwise" (i -<- 1) -- this is debateable but makes function result fit S 147 example
 
 isStackAtLocationEndEnv :: Pointer -> MLStack -> Bool
@@ -675,7 +686,7 @@ cNext (Stack code) Nil = Nil
 cNext (Stack code) p@(Pointer address) =
   case stackLocationFirstItemOfKind' "pushML ATBeg" (transformN (drop (address + 1) code) 12) of
     (Just relativeItemLocation) -> (p +<- 1) + Pointer relativeItemLocation
-    Nothing -> Pointer 0 
+    Nothing -> Pointer 0
 
 cLast :: Zielcode -> Pointer
 cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind "prompt" (transformN code 6)
@@ -686,36 +697,6 @@ cGoal (Stack code) = case stackLocationLastItemOfKind' "return" (transformN code
   Nothing -> Pointer 0
 
 -- the +1 is needed because start of goal is determined by checking the address of the last return statement
-
-{---------------------------------------------------------------------
-   Evaluator Functions -> take generated code list and call functions
- ---------------------------------------------------------------------}
-
-callZielcode :: Command -> RegisterKeller -> Zielcode -> RegisterKeller
--- TODO: Prompt has to be called in Main (?)
-callZielcode (Prompt _) regkeller code = regkeller
-callZielcode (Push _ arg) regkeller code = push arg regkeller code
-callZielcode (Unify _ arg) regkeller _ = unify arg regkeller
-callZielcode (Backtrack _) regkeller code = backtrack regkeller code
-callZielcode (Return _ arg) regkeller code = returnL arg regkeller
-callZielcode (Call _) regkeller code = call regkeller code
-
--- this should be used for calling prompt in main
-callPrompt :: Command -> RegisterKeller -> Zielcode -> IO ()
-callPrompt (Prompt _) regsStacks code = prompt regsStacks code
-callPrompt _ _ _ = error "Calling prompt resulted in an error."
-
--- use this for backtracking after reaching the first prompt
-callFromPrompt :: RegisterKeller -> Zielcode -> IO ()
-callFromPrompt regkeller code = do
-  putStrLn "reeval..."
-  let newregstack = runner regkeller code code
-   in prompt newregstack code
-
-runner :: RegisterKeller -> Zielcode -> Zielcode -> RegisterKeller
-runner regkeller (Stack [firstfkt]) code = callZielcode firstfkt regkeller code
-runner regkeller (Stack (firstfkt : rest)) code = runner (callZielcode firstfkt regkeller code) (Stack rest) code
-runner regkeller (Stack []) code = error "Runner called on empty Zielcode."
 
 {--------------------------------------------------------------------
               ML Unify Hilffunktionen
@@ -862,10 +843,11 @@ checkDereferencedUp arg@(ATStr symb arity) arg2@(ATStr symb2 arity2) all@(addres
 checkDereferencedUp _ _ _ = error "This function checks if the unification of two cells was unsuccesful"
 
 addACIfThenElse :: Int -> RegisterKeller -> RegisterKeller
-addACIfThenElse arity all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) = 
+addACIfThenElse arity all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) =
   if arity >= 1
-  then addAC arity all
-  else addAC (-1) all
+    then addAC arity all
+    else addAC (-1) all
+
 --to get the Arity of the to be unified Argument in push mode
 getArity :: StackElement -> Int
 getArity (CodeArg (ATStr _ arity)) = arity
@@ -984,5 +966,3 @@ initRegstack code =
 
 promptWasCalled :: Zielcode -> RegisterKeller
 promptWasCalled code = auswerten (initRegstack code) code
-
-  
