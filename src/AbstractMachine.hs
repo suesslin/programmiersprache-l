@@ -798,23 +798,16 @@ unifyStrNonPIfThenElse :: Argument -> RegisterKeller -> RegisterKeller
 unifyStrNonPIfThenElse
   arg@(ATStr (A str) arity)
   all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-    if sameSymbolForStr arg all
+    if isVarNil $ getDereferencedUp all
       then addRestoreUp $ addToStackAndTrailStr arg all
       else
-        let (CodeArg arg2@(ATStr symb ar)) = stackItemAtLocation (deref stack up) stack
+        let CodeArg arg2 = getDereferencedUp all
          in checkDereferencedUp arg arg2 all
 unifyStrNonPIfThenElse _ _ = error "Diese Funktion soll nur mit Structure cells aufgerufen werden"
 
-sameSymbolForStr :: Argument -> RegisterKeller -> Bool
-sameSymbolForStr arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  sameSymbolForArgs (stackItemAtLocation (deref stack up) stack) (CodeArg arg)
-
-sameSymbolForArgs :: StackElement -> StackElement -> Bool
-sameSymbolForArgs (CodeArg (ATStr (A str) arity)) (CodeArg (ATStr (A str2) arity2)) = str == str2
-sameSymbolForArgs (CodeArg (ATStr (A str) arity)) (CodeArg (ATVar (V str2) pointer)) = map toLower str == map toLower str2
-sameSymbolForArgs (CodeArg (ATVar (V str) pointer)) (CodeArg (ATStr (A str2) arity)) = map toLower str == map toLower str2
-sameSymbolForArgs (CodeArg (ATVar (V str) pointer)) (CodeArg (ATVar (V str2) arity2)) = str == str2
-sameSymbolForArgs _ _ = error "Der Rest wird meines erachtens nicht gebraucht."
+isVarNil :: StackElement -> Bool
+isVarNil (CodeArg (ATVar symb Nil)) = True
+isVarNil _ = False
 
 --Adds the Argument as a Var to the stack and as a Str to the top of stack, adds an address pointing at the dereferenced unification point to the trail, updates the tops of the stacks modiefied and sets the pushcounter to the arity of the pushed cell
 addToStackAndTrailStr :: Argument -> RegisterKeller -> RegisterKeller
@@ -838,9 +831,14 @@ checkDereferencedUp :: Argument -> Argument -> RegisterKeller -> RegisterKeller
 checkDereferencedUp arg@(ATStr symb arity) arg2@(ATStr symb2 arity2) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) =
   if symb /= symb2 || arity /= arity2
     then ((True, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks)
-    else up1 $ restoreAcUpQ $ addAC (arity -1) $ saveAcUpQ all
+    else up1 $ restoreAcUpQ $ addACIfThenElse arity $ saveAcUpQ all
 checkDereferencedUp _ _ _ = error "This function checks if the unification of two cells was unsuccesful"
 
+addACIfThenElse :: Int -> RegisterKeller -> RegisterKeller
+addACIfThenElse arity all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) = 
+  if arity >= 1
+  then addAC arity all
+  else addAC (-1) all
 --to get the Arity of the to be unified Argument in push mode
 getArity :: StackElement -> Int
 getArity (CodeArg (ATStr _ arity)) = arity
@@ -959,3 +957,5 @@ initRegstack code =
 
 promptWasCalled :: Zielcode -> RegisterKeller
 promptWasCalled code = auswerten (initRegstack code) code
+
+  

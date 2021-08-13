@@ -421,7 +421,7 @@ testUnifyPushVar =
       "unifyPushModus should push the arg (VAR) on the top of stack and change the value of t and pc correctly"
       ((False, Pointer 3, Nil, Nil, Nil, Nil, Nil, Nil, Nil, 1, 0, Nil), (unifyStack <> Stack [CodeArg (ATVar (V "X") (Pointer 2))], Stack [], Stack []))
       (unifyPushModus (ATVar (V "X") (Pointer 2)) ((False, Pointer 2, Nil, Nil, Nil, Nil, Nil, Nil, Nil, 2, 0, Nil), (unifyStack, Stack [], Stack [])))
--- (b, t, c, r, p, up, e, ut, tt, pc, sc, ac),
+
 testUnifyNonPushStrThenCase =
   TestCase $
     assertEqual
@@ -466,38 +466,79 @@ testUnifyNonPushStrThenCase =
         StackAddress (Pointer 9),
         StackAddress (Pointer 10)
       ], Stack [])))
---Unify Helper Funktionen
-testSameSymbolForStrTrue =
-  TestCase $
-    assertEqual
-      "sameSymbolForStr should return True when symbol == symbol2 in ATStr symbol arity and deref up = ATVar symbol2 Nil"
-      True
-      (sameSymbolForStr (ATStr (A "x") 1) ((False, Pointer 6, Nil, Nil, Nil, Pointer 6, Nil, Pointer 2, Nil, 0, 0, Pointer 1),
-      (Stack [
-        CodeArg (ATStr (A "v") 1),
-        CodeAddress Nil,
-        StackAddress Nil,
-        CodeArg (ATVar (V "X") Nil),
-        CodeArg (ATVar (V "X") (Pointer 3)),
-        StackAddress (Pointer 0),
-        CodeArg (ATVar (V "X") (Pointer 4))],
-      Stack [],Stack [])))
 
-testSameSymbolForStrFalse =
+testUnifyNonPushStrElseCaseSymbolNotSame = 
   TestCase $
-    assertEqual
-      "sameSymbolForStr should return True when symbol == symbol2 in ATStr symbol arity and deref up = ATVar symbol2 Nil"
-      False
-      (sameSymbolForStr (ATStr (A "y") 1) ((False, Pointer 6, Nil, Nil, Nil, Pointer 6, Nil, Pointer 2, Nil, 0, 0, Pointer 1),
+    assertEqual 
+    "unifyNonPushModus should land in a if then else case, when the dereferenced up /= Var symbol2 Nil, in which the backtrack flag has to be set as True when the dereferenced Value at up is not the same as the given Argument"
+    ((True, Pointer 6, Nil, Nil, Nil, Pointer 6, Nil, Pointer 2, Nil, 0, 0, Pointer 1),
+       (Stack [
+        CodeArg (ATStr (A "v") 1),
+        CodeAddress Nil,
+        StackAddress Nil,
+        CodeArg (ATVar (V "X") (Pointer 0)),
+        CodeArg (ATVar (V "X") (Pointer 3)),
+        StackAddress (Pointer 0),
+        CodeArg (ATVar (V "X") (Pointer 4))
+       ],
+       Stack [], Stack []))
+    (unifyNonPushModus (ATStr (A "s") 1) ((False, Pointer 6, Nil, Nil, Nil, Pointer 6, Nil, Pointer 2, Nil, 0, 0, Pointer 1),
       (Stack [
         CodeArg (ATStr (A "v") 1),
         CodeAddress Nil,
         StackAddress Nil,
-        CodeArg (ATVar (V "X") Nil),
+        CodeArg (ATVar (V "X") (Pointer 0)),
         CodeArg (ATVar (V "X") (Pointer 3)),
         StackAddress (Pointer 0),
-        CodeArg (ATVar (V "X") (Pointer 4))],
-        Stack [],Stack [])))
+        CodeArg (ATVar (V "X") (Pointer 4))
+      ],
+      Stack [], Stack [])))
+
+-- addAc/restoreAcUpQ/saveAcUpQ have been tested already therefor I am not gonna differentiate further
+--(b, t, c, r, p, up, e, ut, tt, pc, sc, ac)
+testUnifyNonPushStrElseCaseSymbolSameAritySmaller1 = 
+  TestCase $
+    assertEqual
+     "unifyNonPush should land in a if then else case, when the dereferenced up /= Var symbol2 Nil, in which the functions addAc(-1)/addAc(arity), restoreAcUpQ, saveAcUpQ have to be called depending on the arity"
+     ((False, Pointer 6, Pointer 1, Nil, Nil, Pointer 7, Nil, Pointer 2, Nil, 0, 0, Pointer 2),
+     (Stack [
+      CodeArg (ATStr (A "x") 1),
+      CodeAddress Nil,
+      StackAddress Nil,
+      CodeArg (ATVar (V "X") (Pointer 0)),
+      CodeArg (ATVar (V "X") (Pointer 3)),
+      StackAddress (Pointer 0),
+      CodeArg (ATVar (V "X") (Pointer 4))
+     ],
+     Stack [
+      StackAddress (Pointer 4),
+      StackAddress (Pointer 5),
+      StackAddress (Pointer 6),
+      StackAddress (Pointer 7),
+      StackAddress (Pointer 8),
+      StackAddress (Pointer 9),
+      StackAddress (Pointer 10)
+     ],
+     Stack []))
+     (unifyNonPushModus (ATStr (A "x") 1) ((False, Pointer 6, Pointer 1, Nil, Nil, Pointer 6, Nil, Pointer 2, Nil, 0, 0, Pointer 1),
+      (Stack [
+        CodeArg (ATStr (A "x") 1),
+        CodeAddress Nil,
+        StackAddress Nil,
+        CodeArg (ATVar (V "X") (Pointer 0)),
+        CodeArg (ATVar (V "X") (Pointer 3)),
+        StackAddress (Pointer 0),
+        CodeArg (ATVar (V "X") (Pointer 4))
+      ],
+      Stack [
+        StackAddress (Pointer 4),
+        StackAddress (Pointer 5),
+        StackAddress (Pointer 6),
+        StackAddress (Pointer 7),
+        StackAddress (Pointer 8),
+        StackAddress (Pointer 9),
+        StackAddress (Pointer 10)
+      ], Stack [])))
 {-
 -- First call instruction, p. 129
 testCallOnFirst =
@@ -946,12 +987,9 @@ unifyTests =
   [
     testUnifyPushStr,
     testUnifyPushVar,
-    testUnifyNonPushStrThenCase
-  ]
-unifyHelperTests =
-  [
-    testSameSymbolForStrTrue,
-    testSameSymbolForStrFalse
+    testUnifyNonPushStrThenCase,
+    testUnifyNonPushStrElseCaseSymbolNotSame,
+    testUnifyNonPushStrElseCaseSymbolSameAritySmaller1
   ]
 {- helpersTests =
   [ testCFirstPkAndZiel,
