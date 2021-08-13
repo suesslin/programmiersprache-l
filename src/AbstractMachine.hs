@@ -799,15 +799,15 @@ sameSymbolForArgs _ _ = error "Der Rest wird meines erachtens nicht gebraucht."
 addToStackAndTrailStr :: Argument -> RegisterKeller -> RegisterKeller
 addToStackAndTrailStr arg@(ATStr (A str) arity) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   ( (b, t +<- 1, c, r, p, up, e, ut, tt +<- 1, arity, sc, ac),
-    ( stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) $ stackReplaceAtLocationMLStack (deref stack up) (getDereferenced all) stack,
+    ( stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) $ stackReplaceAtLocationMLStack (deref stack up) (changePointer (t+<-1) $ getDereferencedUp all) stack,
       us,
       stackReplaceAtLocationMLStack (tt +<- 1) (StackAddress (deref stack up)) trail
     )
   )
 addToStackAndTrailStr _ _ = error "addToStackAndTrailStr soll nur mit ATStr Argumenten aufgerufen werden"
 
-getDereferenced :: RegisterKeller -> StackElement
-getDereferenced all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = changePointer (t+<-1) $ stackItemAtLocation (deref stack up) stack
+getDereferencedUp :: RegisterKeller -> StackElement
+getDereferencedUp all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = stackItemAtLocation (deref stack up) stack
 
 changePointer :: Pointer -> StackElement -> StackElement
 changePointer pointer (CodeArg (ATVar var _)) = CodeArg (ATVar var pointer)
