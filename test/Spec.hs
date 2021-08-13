@@ -9,7 +9,7 @@ main = do
   results <-
     runTestTT . TestList . concat $
       [literalTests, lTermTests, nvlTermTest, zielTests, pkTests, programmTests, reoccurringLiteralTests, teilNichtVariableLTermTests, parserTests, stackTests, 
-      übTests, pushTests,backtrackTests, callTests, unifyMakroTests] --helpersTests, commandTests]
+      übTests, pushTests,backtrackTests, callTests, unifyMakroTests, unifyTests, unifyHelperTests] --helpersTests, commandTests]
 
   if errors results + failures results == 0
     then putStrLn "Tests passed."

@@ -6,8 +6,8 @@ data Pointer = Pointer Int | Nil deriving (Show, Eq)
 
 instance Num Pointer where
   (Pointer x) + (Pointer y) = Pointer (x + y)
-  x + Nil = x
-  Nil + y = y
+  x + Nil = x-1 -- -1 weil wir Anfangen bei 0 zu zählen. Bsp. tt = nil, also kein Element in trail vorhanden. tt+1 = Pointer 0, erstes Element in Trail vorhanden. 
+  Nil + y = y-1
   (Pointer x) - (Pointer y) = Pointer (x - y)
   Nil - Nil = Nil
   (Pointer _) - Nil = Nil
@@ -52,7 +52,7 @@ instance Integral Pointer where
  ---------------------------------------------------------------------}
 
 addPi :: Pointer -> Int -> Pointer
-addPi Nil y = Pointer y
+addPi Nil y = Pointer (y-1)
 addPi (Pointer x) y = Pointer $ x + y
 
 subtractPi :: Pointer -> Int -> Pointer

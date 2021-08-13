@@ -1,6 +1,6 @@
 module AbstractMachine where
 
-import Control.Exception
+import Data.Char
 import Data.Maybe (fromJust, fromMaybe)
 import Debug.Trace
 import Models
@@ -133,8 +133,8 @@ stackItemToInt (CodeAddress x) = Just x
 stackItemToInt (StackAddress x) = Just x
 stackItemToInt (UsAddress x) = Just x
 stackItemToInt (TrailAddress x) = Just x
-stackItemToInt (CodeArg (ATVar symb addr)) = Just addr 
-stackItemToInt (CodeArg (ATStr symb arity)) = Just (Pointer arity) 
+stackItemToInt (CodeArg (ATVar symb addr)) = Just addr
+stackItemToInt (CodeArg (ATStr symb arity)) = Just (Pointer arity)
 stackItemToInt _ = Nothing
 
 safePointerFromStackAtLocation :: Pointer -> Stack StackElement -> Pointer
@@ -142,7 +142,7 @@ safePointerFromStackAtLocation addr stack =
   fromMaybe Nil (stackItemToInt $ stackItemAtLocation addr stack)
 
 
-stackReplaceAtLocationMLStack i elem = stackReplaceAtLocation i elem (StackAddress Nil) 
+stackReplaceAtLocationMLStack i elem = stackReplaceAtLocation i elem (StackAddress Nil)
 
 -- Commands, necessary for having a List of named partially applied functions
 data Command
@@ -291,11 +291,11 @@ push
         us,
         trail
       )
-    ) 
+    )
 -- Push CHP
 push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code =
   ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e, 0, tt, 0, sc, Nil),
-    ( stackReplaceAtLocationMLStack 
+    ( stackReplaceAtLocationMLStack
         (t +<- 5)
         (TrailAddress tt)
         (stackReplaceAtLocationMLStack
@@ -344,7 +344,7 @@ push ATEndAtom ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) 
   )
 push arg@(ATEndEnv n) (regs@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
   ( (b, t +<- 1, c, r, p +<- 1, up, (t +<- 1) -<- n, ut, tt, pc, sc, ac),
-    ( stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) stack, 
+    ( stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) stack,
       us,
       trail
     )
@@ -429,9 +429,9 @@ backtrackAfterWhile
     ((b, safePointerFromStackAtLocation (c +<- 5) stack, c, r, p, c +<- 6, safePointerFromStackAtLocation (c +<- 5) stack +<- 1, Pointer 0, tt, 0, sc, Nil), stacks)
 
 backtrackCNilRnotNil :: RegisterKeller -> Bool
-backtrackCNilRnotNil ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = 
-  safePointerFromStackAtLocation c stack == Nil                                             
-    && safePointerFromStackAtLocation r stack /= Nil 
+backtrackCNilRnotNil ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
+  safePointerFromStackAtLocation c stack == Nil
+    && safePointerFromStackAtLocation r stack /= Nil
 
 backtrackISchleife :: Pointer -> RegisterKeller -> RegisterKeller
 backtrackISchleife i all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
@@ -520,7 +520,7 @@ sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, s
  -}
 
 sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
-sAdd (regs, (Stack [], us, trail)) var modearg = Nil 
+sAdd (regs, (Stack [], us, trail)) var modearg = Nil
 sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack content), us, trail)) targetvar@(ATVar _ _) modearg =
   let stackpart@(Stack content') = Stack (takeWhile (not . isStackElemEndEnv) content)
    in case modearg of
@@ -530,7 +530,7 @@ sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack conten
             then sAddHelper stackpart targetvar
             else sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content')) targetvar
         _ -> error "sAdd was called with wrong modearg"
-sAdd _ _ _ = error "sAdd called on non variable" 
+sAdd _ _ _ = error "sAdd called on non variable"
 
 sAddHelper :: Stack StackElement -> Argument -> Pointer
 sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) =
@@ -783,20 +783,35 @@ unifyStrNonPIfThenElse
 unifyStrNonPIfThenElse _ _ = error "Diese Funktion soll nur mit Structure cells aufgerufen werden"
 
 sameSymbolForStr :: Argument -> RegisterKeller -> Bool
-sameSymbolForStr (ATStr symb@(A str) arity) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  stackItemAtLocation (deref stack up) stack == CodeArg (ATVar (V str) Nil)
-sameSymbolForStr _ _ = error "sameSymbolForStr gibt nur einen Wahrheitswert zurück für ATStr Argumente"
+sameSymbolForStr arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
+  sameSymbolForArgs (stackItemAtLocation (deref stack up) stack) (CodeArg arg)
+
+
+sameSymbolForArgs :: StackElement -> StackElement -> Bool
+sameSymbolForArgs (CodeArg (ATStr (A str) arity)) (CodeArg (ATStr (A str2) arity2)) = str == str2
+sameSymbolForArgs (CodeArg (ATStr (A str) arity)) (CodeArg (ATVar (V str2) pointer)) = map toLower str == map toLower str2
+sameSymbolForArgs (CodeArg (ATVar (V str) pointer)) (CodeArg (ATStr (A str2) arity)) = map toLower str == map toLower str2
+sameSymbolForArgs (CodeArg (ATVar (V str) pointer)) (CodeArg (ATVar (V str2) arity2)) = str == str2
+sameSymbolForArgs _ _ = error "Der Rest wird meines erachtens nicht gebraucht."
+
 
 --Adds the Argument as a Var to the stack and as a Str to the top of stack, adds an address pointing at the dereferenced unification point to the trail, updates the tops of the stacks modiefied and sets the pushcounter to the arity of the pushed cell
 addToStackAndTrailStr :: Argument -> RegisterKeller -> RegisterKeller
 addToStackAndTrailStr arg@(ATStr (A str) arity) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   ( (b, t +<- 1, c, r, p, up, e, ut, tt +<- 1, arity, sc, ac),
-    ( stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) $ stackReplaceAtLocationMLStack (deref stack up) (CodeArg (ATVar (V str) (t +<- 1))) stack,
+    ( stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) $ stackReplaceAtLocationMLStack (deref stack up) (getDereferenced all) stack,
       us,
-      stackReplaceAtLocationMLStack (tt +<- 1) (CodeAddress (deref stack up)) trail
+      stackReplaceAtLocationMLStack (tt +<- 1) (StackAddress (deref stack up)) trail
     )
   )
 addToStackAndTrailStr _ _ = error "addToStackAndTrailStr soll nur mit ATStr Argumenten aufgerufen werden"
+
+getDereferenced :: RegisterKeller -> StackElement
+getDereferenced all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = changePointer (t+<-1) $ stackItemAtLocation (deref stack up) stack
+
+changePointer :: Pointer -> StackElement -> StackElement
+changePointer pointer (CodeArg (ATVar var _)) = CodeArg (ATVar var pointer)
+changePointer _ _ = error "Nur ATVar Elemente im Stack haben Pointer die geändert werden können"
 
 checkDereferencedUp :: Argument -> Argument -> RegisterKeller -> RegisterKeller
 checkDereferencedUp arg@(ATStr symb arity) arg2@(ATStr symb2 arity2) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) =

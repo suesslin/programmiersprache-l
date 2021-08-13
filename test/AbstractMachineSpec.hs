@@ -170,83 +170,83 @@ testPushAtomSubsequent =
           code''
       ) -}
 
-initialML :: Zielcode -> RegisterKeller 
+initialML :: Zielcode -> RegisterKeller
 initialML code = ((False, Pointer (-1), Nil, Nil, cGoal code, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Pointer 0), (initialStack, initialUs, initialTrail))
 
-zielcodeEmptyML :: Zielcode 
-zielcodeEmptyML = stackNewEmpty 
+zielcodeEmptyML :: Zielcode
+zielcodeEmptyML = stackNewEmpty
 
-initialStack :: Stack StackElement 
-initialStack = stackNewEmpty 
+initialStack :: Stack StackElement
+initialStack = stackNewEmpty
 
-initialUs :: Stack StackElement 
-initialUs = stackNewEmpty 
+initialUs :: Stack StackElement
+initialUs = stackNewEmpty
 
-initialTrail :: Stack StackElement 
-initialTrail = stackNewEmpty 
+initialTrail :: Stack StackElement
+initialTrail = stackNewEmpty
 
 --TODO important note; c must be init with -1 (same reason as for t)
 
-pushTestRegs :: RegisterKeller 
-pushTestRegs = ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 0, Nil, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil), 
+pushTestRegs :: RegisterKeller
+pushTestRegs = ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 0, Nil, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil),
       (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail))
 
-pushTestRegsEndEnv :: RegisterKeller 
-pushTestRegsEndEnv = ((False, Pointer 5, Pointer 0, Pointer 0, Pointer 0, Nil, Pointer 4, Pointer 0, Pointer 0, 0, 0, Nil), 
+pushTestRegsEndEnv :: RegisterKeller
+pushTestRegsEndEnv = ((False, Pointer 5, Pointer 0, Pointer 0, Pointer 0, Nil, Pointer 4, Pointer 0, Pointer 0, 0, 0, Nil),
       (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail))
 
-pushTestCode :: Zielcode 
+pushTestCode :: Zielcode
 pushTestCode = genCode $ parse $ tokenize ":- p(X)."
 
-pushTestCode' :: Zielcode 
+pushTestCode' :: Zielcode
 pushTestCode' = genCode $ parse $ tokenize "p (a). :- p (X)."
 
 -- TODO, check validity 
-testPushSTR = 
-  TestCase $ 
-    assertEqual 
+testPushSTR =
+  TestCase $
+    assertEqual
       "push Str symb arity should update stack location t+1 with said Str Cell, then increase t by 1."
-      ((False, Pointer 0, Nil, Nil, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Pointer 0), 
+      ((False, Pointer 0, Nil, Nil, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Pointer 0),
         (Stack [CodeArg (ATStr (A "p") 0)], initialUs, initialTrail))
       (push (ATStr (A "p") 0) (initialML pushTestCode) pushTestCode)
 
-testPushVAR = 
-  TestCase $ 
-    assertEqual 
-      "push Var symb (nil) should update loc t+1 with var symb and call s_add to find a stackadress (or keep nil), then t+1." 
-      ((False, Pointer 0, Nil, Nil, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Pointer 0), 
+testPushVAR =
+  TestCase $
+    assertEqual
+      "push Var symb (nil) should update loc t+1 with var symb and call s_add to find a stackadress (or keep nil), then t+1."
+      ((False, Pointer 0, Nil, Nil, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Pointer 0),
         (Stack [CodeArg (ATVar (V "X") Nil)], initialUs, initialTrail))
       (push (ATVar (V "X") Nil) (initialML pushTestCode) pushTestCode)
 
 -- TODO, check validity
-testPushCHP = 
-  TestCase $ 
-    assertEqual 
+testPushCHP =
+  TestCase $
+    assertEqual
       "push chp should update stack an registers accordingly."
-      ((False, Pointer 5, Pointer 0, Pointer 1, Pointer 1, Pointer 6, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil), 
+      ((False, Pointer 5, Pointer 0, Pointer 1, Pointer 1, Pointer 6, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil),
         (Stack [CodeAddress (Pointer 2), CodeAddress (Pointer 0), StackAddress (Pointer 1), StackAddress (Pointer 1), TrailAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail))
-      (push ATChp pushTestRegs pushTestCode') 
+      (push ATChp pushTestRegs pushTestCode')
 
-testPushEndAtom = 
-  TestCase $ 
-    assertEqual 
-      "push EndAtom should set registers accordingly (update stack at locations c+2 and c+5)" 
+testPushEndAtom =
+  TestCase $
+    assertEqual
+      "push EndAtom should set registers accordingly (update stack at locations c+2 and c+5)"
       ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 1, Nil, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil), (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), CodeAddress (Pointer 3), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer (-1))], initialUs, initialTrail))
       (push ATEndAtom pushTestRegs zielcodeEmptyML)
 
-testPushBegEnv = 
-  TestCase $ 
+testPushBegEnv =
+  TestCase $
     assertEqual
       "push BegEnv should set registers accordingly (reset the e pointer to nil)"
-      ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Nil), 
+      ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 1, Nil, Nil, Pointer 0, Pointer 0, 0, 0, Nil),
         (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail))
       (push ATBegEnv pushTestRegs zielcodeEmptyML)
 
-testPushEndEnv = 
-  TestCase $ 
-    assertEqual 
+testPushEndEnv =
+  TestCase $
+    assertEqual
       "push EndEnv n should set stack and registers accordingly (set e pointer, iterate t, set EndEnv StackArgument)."
-      ((False, Pointer 6, Pointer 0, Pointer 0, Pointer 1, Nil, Pointer 5, Pointer 0, Pointer 0, 0, 0, Nil), 
+      ((False, Pointer 6, Pointer 0, Pointer 0, Pointer 1, Nil, Pointer 5, Pointer 0, Pointer 0, 0, 0, Nil),
         (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 0), CodeArg (ATEndEnv 1)], initialUs, initialTrail))
       (push (ATEndEnv 1) pushTestRegsEndEnv zielcodeEmptyML)
 
@@ -256,50 +256,50 @@ stackBacktrackTestML = Stack [StackAddress (Pointer 0), CodeAddress (Pointer 1),
 trailBacktrackTestML = Stack [StackAddress (Pointer 1)]
 -- filled stack with basically random values (expect loc 1 and 2); should be fine, but if weirdness occurs, check this
 
-registerBacktrackTest :: AddressRegs 
+registerBacktrackTest :: AddressRegs
 registerBacktrackTest = (True, Pointer 2, Pointer 2, Pointer 1, Pointer 1, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0)
 
-registerBacktrackTestBFalse :: AddressRegs 
+registerBacktrackTestBFalse :: AddressRegs
 registerBacktrackTestBFalse = (False, Pointer 2, Pointer 2, Pointer 1, Pointer 1, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0)
 
-registerKellerBacktrackMLCNotNil :: RegisterKeller 
+registerKellerBacktrackMLCNotNil :: RegisterKeller
 registerKellerBacktrackMLCNotNil = (registerBacktrackTest, (stackBacktrackTestML, initialUs, trailBacktrackTestML))
 
-registerKellerBacktrackWhileTest :: RegisterKeller 
+registerKellerBacktrackWhileTest :: RegisterKeller
 registerKellerBacktrackWhileTest = (registerBacktrackTest, (Stack [StackAddress (Pointer 2), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 4)], initialUs, initialTrail))
 
-backtrackTestZielcode :: Zielcode 
+backtrackTestZielcode :: Zielcode
 backtrackTestZielcode = genCode $ parse $ tokenize "p(X). :- q(a)."
 
-testBacktrackBTrue = 
-  TestCase $ 
-    assertEqual 
+testBacktrackBTrue =
+  TestCase $
+    assertEqual
       "Backtrack should set registers accordingly when called on c not nil and no stack(c) = nil match."
-      ((False, Pointer 6, Pointer 2, Pointer 1, Pointer 3, Pointer 8, Pointer 7, Pointer 0, Pointer 3, 0, 0, Nil), 
+      ((False, Pointer 6, Pointer 2, Pointer 1, Pointer 3, Pointer 8, Pointer 7, Pointer 0, Pointer 3, 0, 0, Nil),
         (Stack [StackAddress (Pointer 0), CodeAddress (Pointer 1), CodeAddress Nil, StackAddress (Pointer 3), StackAddress (Pointer 4),
-                StackAddress (Pointer 1), StackAddress (Pointer 3), StackAddress (Pointer 6), StackAddress (Pointer 3)], 
+                StackAddress (Pointer 1), StackAddress (Pointer 3), StackAddress (Pointer 6), StackAddress (Pointer 3)],
         initialUs, trailBacktrackTestML))
       (backtrack registerKellerBacktrackMLCNotNil zielcodeEmptyML)
 
-testBacktrackBTrueWhileLoop = 
-  TestCase $ 
-    assertEqual 
+testBacktrackBTrueWhileLoop =
+  TestCase $
+    assertEqual
       "backtrackWhile should set registers accordingly."
-      ((True, Pointer 2, Pointer 1, Pointer 2, Pointer 1, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0), 
+      ((True, Pointer 2, Pointer 1, Pointer 2, Pointer 1, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0),
         (Stack [StackAddress (Pointer 2), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 4)], initialUs, initialTrail))
       (backtrackWhile registerKellerBacktrackWhileTest)
 
-testBacktrackBTrueIfStackCNil = 
-  TestCase $ 
+testBacktrackBTrueIfStackCNil =
+  TestCase $
     assertEqual
       "Backtrack should set p to c last in case stack (c) = nil check is passed after settings registers."
-      ((True, Pointer 2, Pointer 2, Pointer 1, Pointer 16, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0), 
+      ((True, Pointer 2, Pointer 2, Pointer 1, Pointer 16, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0),
         (Stack [StackAddress (Pointer 2), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 4)], initialUs, initialTrail))
       (backtrackIfThenElse registerKellerBacktrackWhileTest backtrackTestZielcode)
 
-testBacktrackBFalse = 
-  TestCase $ 
-    assertEqual 
+testBacktrackBFalse =
+  TestCase $
+    assertEqual
       "Backtrack should increment p by one if called with b = false."
       ((False, Pointer 2, Pointer 2, Pointer 1, Pointer 2, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0), (stackBacktrackTestML, initialUs, trailBacktrackTestML))
       (backtrack (registerBacktrackTestBFalse, (stackBacktrackTestML, initialUs, trailBacktrackTestML)) zielcodeEmptyML)
@@ -319,14 +319,14 @@ testUnifyUnunifiable =
       (unify (A "p") ((False, Pointer 7, Pointer 4, Pointer 5, Pointer 0), Stack [CodeAddress (Pointer 6), StackAddress Nil, CodeAddress (Pointer 18), CodeAtom (A "p"), CodeAddress (Pointer 6), StackAddress (Pointer 0), CodeAddress (Pointer 5), CodeAtom (A "q")]))
 -}
 --Tests für Unify Makroinstruktionen
-testAddAcNil = 
+testAddAcNil =
   TestCase $
     assertEqual
       "addAc should return the stacks and register unchanged when ac = Nil"
       ((False, Pointer 1, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Nil), (Stack [], Stack [], Stack []))
       (addAC 5 ((False, Pointer 1, Pointer 2,Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Nil), (Stack [], Stack [], Stack [])))
 
-testAddAcNotNil = 
+testAddAcNotNil =
   TestCase $
     assertEqual
       "addAc should return the stacks unchanged and add the first argument to ac when ac /= Nil"
@@ -346,40 +346,158 @@ testRestoreAcUpQAcNot0 =
       "restoreAcUpQ should return the stacks and registers unchanged when ac /= 0"
                     ((False, Pointer 1, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack []))
       (restoreAcUpQ ((False, Pointer 1, Pointer 2,Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [], Stack [], Stack [])))
---  (b, t, c, r, p, up, e, ut, tt, pc, sc, ac), 
+
 saveAcUpStack :: MLStack
 saveAcUpStack = Stack [CodeArg (ATStr (A "x") 2), CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))]
 
 saveAcUpStackArity0 :: MLStack
 saveAcUpStackArity0 = Stack [CodeArg (ATStr (A "x") 0), CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))]
 
-testSaveAcUpQ = 
+testSaveAcUpQ =
   TestCase $
-    assertEqual 
+    assertEqual
       "saveAcUpQ should save the values of ac and up in us when up is smaller then the Pointer at c+5, the dereferenced up /= up and the arity of the dereferenced up in stack /= 0"
       ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 0, Pointer 6, Pointer 9, Pointer 8, 9, 10, Pointer 0), (Stack [CodeArg (ATStr (A "x") 2),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [StackAddress (Pointer 11), StackAddress (Pointer 6)], Stack []))
       (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (saveAcUpStack, Stack [], Stack [])))
 
-testSaveAcUpQUpBigger = 
+testSaveAcUpQUpBigger =
   TestCase $
     assertEqual
       "saveAcUp should not save the values of ac and up when up is bigger then the Pointer at c+5"
       ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 7, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [CodeArg (ATStr (A "x") 2),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [], Stack []))
       (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 7, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (saveAcUpStack, Stack [], Stack [])))
 
-testSaveAcUpQUpEqualsDerefUp = 
+testSaveAcUpQUpEqualsDerefUp =
   TestCase $
     assertEqual
       "saveAcUp should not save the values of ac and up when the dereferenced up /= up"
       ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 0, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [CodeArg (ATStr (A "x") 2),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [], Stack []))
       (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 0, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (saveAcUpStack, Stack [], Stack [])))
 
-testSaveAcUpQArityEquals0 = 
+testSaveAcUpQArityEquals0 =
   TestCase $
     assertEqual
       "saveAcUp should not save the values of ac and up when the the arity of the dereferenced up in stack /= 0"
       ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (Stack [CodeArg (ATStr (A "x") 0),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [], Stack []))
       (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (saveAcUpStackArity0, Stack [], Stack [])))
+
+derefStack :: MLStack
+derefStack = Stack [
+  CodeArg (ATStr (A "v") 1),
+  CodeAddress Nil,
+  StackAddress Nil,
+  CodeArg (ATVar (V "X") Nil),
+  CodeArg (ATVar (V "X") (Pointer 3)),
+  StackAddress (Pointer 0),
+  CodeArg (ATVar (V "X") (Pointer 4))]
+
+testDeref =
+  TestCase $
+    assertEqual
+      "deref has to deliver the pointer of the dereferenced Variable when called with a Pointer pointing at a Var"
+      (Pointer 3)
+      (deref derefStack (Pointer 6))
+
+testStackItemAtLocationDerefUp =
+  TestCase $
+    assertEqual
+    "stackItemAtLocation (deref up) stack has to return the dereferenced Var"
+    (CodeArg (ATVar (V "X") Nil))
+    (stackItemAtLocation (deref  derefStack (Pointer 6)) derefStack)
+--Tests für Unify
+unifyStack = Stack [CodeArg (ATStr (A "v") 1), CodeArg (ATVar (V "V") Nil),CodeArg (ATVar (V "V") (Pointer 1))]
+--der unifyPush test soll nur stack, t, pc, verändern, deshalb kann der rest nil/0/leer sein (b, t, c, r, p, up, e, ut, tt, pc, sc, ac),
+testUnifyPushStr =
+  TestCase $
+    assertEqual
+      "unifyPushModus should push the arg (STR) on the top of stack and change the value of t and pc correctly"
+      ((False, Pointer 3, Nil, Nil, Nil, Nil, Nil, Nil, Nil, 3, 0, Nil), (unifyStack <> Stack [CodeArg (ATStr (A "x") 2)], Stack [], Stack []))
+      (unifyPushModus (ATStr (A "x") 2) ((False, Pointer 2, Nil, Nil, Nil, Nil, Nil, Nil, Nil, 2, 0, Nil), (unifyStack, Stack [], Stack [])))
+
+--TODO: apparently sAdd doesn't work therefor this test will always fail (Results in an error: Tried converting Pointer value Nil to an Integer-type.), unifyStack has to be different here
+testUnifyPushVar =
+  TestCase $
+    assertEqual
+      "unifyPushModus should push the arg (VAR) on the top of stack and change the value of t and pc correctly"
+      ((False, Pointer 3, Nil, Nil, Nil, Nil, Nil, Nil, Nil, 1, 0, Nil), (unifyStack <> Stack [CodeArg (ATVar (V "X") (Pointer 2))], Stack [], Stack []))
+      (unifyPushModus (ATVar (V "X") (Pointer 2)) ((False, Pointer 2, Nil, Nil, Nil, Nil, Nil, Nil, Nil, 2, 0, Nil), (unifyStack, Stack [], Stack [])))
+-- (b, t, c, r, p, up, e, ut, tt, pc, sc, ac),
+testUnifyNonPushStrThenCase =
+  TestCase $
+    assertEqual
+      "unifyNonPusModus should push (Var symb t+1) at the dereferenced up, push the dereferenced up to trail and push the arg to stack, as well as increase tt, t, up, ac and call addAc and restoreAcUpQ, when stack at the dereferenced up contains Var symb Nil"
+      ((False, Pointer 7, Nil, Nil, Nil, Pointer 7, Nil, Pointer 0, Pointer 0, 1, 0, Pointer 5),
+       (Stack [
+        CodeArg (ATStr (A "v") 1),
+        CodeAddress Nil,
+        StackAddress Nil,
+        CodeArg (ATVar (V "X") (Pointer 7)),
+        CodeArg (ATVar (V "X") (Pointer 3)),
+        StackAddress (Pointer 0),
+        CodeArg (ATVar (V "X") (Pointer 4)),
+        CodeArg (ATStr (A "x") 1)
+       ],
+       Stack [
+        StackAddress (Pointer 4),
+        StackAddress (Pointer 5),
+        StackAddress (Pointer 6),
+        StackAddress (Pointer 7),
+        StackAddress (Pointer 8),
+        StackAddress (Pointer 9),
+        StackAddress (Pointer 10)
+       ],
+       Stack [StackAddress (Pointer 3)]))
+      (unifyNonPushModus (ATStr (A "x") 1) ((False, Pointer 6, Nil, Nil, Nil, Pointer 6, Nil, Pointer 2, Nil, 0, 0, Pointer 1),
+      (Stack [
+        CodeArg (ATStr (A "v") 1),
+        CodeAddress Nil,
+        StackAddress Nil,
+        CodeArg (ATVar (V "X") Nil),
+        CodeArg (ATVar (V "X") (Pointer 3)),
+        StackAddress (Pointer 0),
+        CodeArg (ATVar (V "X") (Pointer 4))
+      ],
+      Stack [
+        StackAddress (Pointer 4),
+        StackAddress (Pointer 5),
+        StackAddress (Pointer 6),
+        StackAddress (Pointer 7),
+        StackAddress (Pointer 8),
+        StackAddress (Pointer 9),
+        StackAddress (Pointer 10)
+      ], Stack [])))
+--Unify Helper Funktionen
+testSameSymbolForStrTrue =
+  TestCase $
+    assertEqual
+      "sameSymbolForStr should return True when symbol == symbol2 in ATStr symbol arity and deref up = ATVar symbol2 Nil"
+      True
+      (sameSymbolForStr (ATStr (A "x") 1) ((False, Pointer 6, Nil, Nil, Nil, Pointer 6, Nil, Pointer 2, Nil, 0, 0, Pointer 1),
+      (Stack [
+        CodeArg (ATStr (A "v") 1),
+        CodeAddress Nil,
+        StackAddress Nil,
+        CodeArg (ATVar (V "X") Nil),
+        CodeArg (ATVar (V "X") (Pointer 3)),
+        StackAddress (Pointer 0),
+        CodeArg (ATVar (V "X") (Pointer 4))],
+      Stack [],Stack [])))
+
+testSameSymbolForStrFalse =
+  TestCase $
+    assertEqual
+      "sameSymbolForStr should return True when symbol == symbol2 in ATStr symbol arity and deref up = ATVar symbol2 Nil"
+      False
+      (sameSymbolForStr (ATStr (A "y") 1) ((False, Pointer 6, Nil, Nil, Nil, Pointer 6, Nil, Pointer 2, Nil, 0, 0, Pointer 1),
+      (Stack [
+        CodeArg (ATStr (A "v") 1),
+        CodeAddress Nil,
+        StackAddress Nil,
+        CodeArg (ATVar (V "X") Nil),
+        CodeArg (ATVar (V "X") (Pointer 3)),
+        StackAddress (Pointer 0),
+        CodeArg (ATVar (V "X") (Pointer 4))],
+        Stack [],Stack [])))
 {-
 -- First call instruction, p. 129
 testCallOnFirst =
@@ -424,7 +542,7 @@ testCallCNilCase =
 --call doesn't change t,c,r,up,e,ut,tt,pc,sc,ac, nor the stacks us and trail therefor they can be Nil/Empty respectively
 --(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), call doesn't change t,c,r,up,e,ut,tt,pc,sc,ac, nor the stacks us and trail therefor they can be Nil/Empty respectively
 
-callCode :: Zielcode 
+callCode :: Zielcode
 callCode = genCode $ parse $ tokenize "p. q. :- p(a)."
 
 testCallStackAtCNil =
@@ -434,11 +552,11 @@ testCallStackAtCNil =
       ((True,Nil, Pointer 1, Nil,Pointer 2,Nil,Nil,Nil,Nil,0,0,Nil), (Stack [CodeAddress (Pointer 1),CodeAddress Nil], Stack [], Stack []))
       (call ((False,Nil, Pointer 1, Nil,Pointer 1,Nil,Nil,Nil,Nil,0,0,Nil), (Stack [CodeAddress (Pointer 1),CodeAddress Nil], Stack [], Stack [])) exampleZielcode)
 
-testCallElseCase = 
-  TestCase $ 
-    assertEqual 
+testCallElseCase =
+  TestCase $
+    assertEqual
       "call should set p to stack (c), then set stack (c) to c_next of current stack(c) value."
-      ((False, Pointer 2, Pointer 1, Pointer 1, Pointer 5, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0), 
+      ((False, Pointer 2, Pointer 1, Pointer 1, Pointer 5, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0),
         (Stack [StackAddress (Pointer 0), CodeAddress (Pointer 7)], initialUs, initialTrail))
       (call ((False, Pointer 2, Pointer 1, Pointer 1, Pointer 2, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0), (Stack [StackAddress (Pointer 0), CodeAddress (Pointer 5)], initialUs, initialTrail)) callCode)
 
@@ -792,7 +910,7 @@ testÜbVarSeqAtmWithVar =
     testÜbVarSeqSeq
   ]
 
-pushTests = 
+pushTests =
   [ testPushSTR,
     testPushVAR,
     testPushCHP,
@@ -800,18 +918,18 @@ pushTests =
     testPushBegEnv,
     testPushEndEnv
   ]
-callTests = 
+callTests =
   [
     testCallStackAtCNil,
     testCallElseCase
   ]
-backtrackTests = 
+backtrackTests =
   [ testBacktrackBTrue,
     testBacktrackBTrueWhileLoop,
     testBacktrackBTrueIfStackCNil,
     testBacktrackBFalse
   ]
-unifyMakroTests = 
+unifyMakroTests =
   [
     testAddAcNil,
     testAddAcNotNil,
@@ -820,7 +938,20 @@ unifyMakroTests =
     testSaveAcUpQ,
     testSaveAcUpQUpBigger,
     testSaveAcUpQUpEqualsDerefUp,
-    testSaveAcUpQArityEquals0
+    testSaveAcUpQArityEquals0,
+    testDeref,
+    testStackItemAtLocationDerefUp
+  ]
+unifyTests =
+  [
+    testUnifyPushStr,
+    testUnifyPushVar,
+    testUnifyNonPushStrThenCase
+  ]
+unifyHelperTests =
+  [
+    testSameSymbolForStrTrue,
+    testSameSymbolForStrFalse
   ]
 {- helpersTests =
   [ testCFirstPkAndZiel,
