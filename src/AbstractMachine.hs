@@ -1,6 +1,6 @@
 module AbstractMachine where
 
-import Data.Char
+import Data.Char (toLower)
 import Data.Maybe (fromJust, fromMaybe)
 import Debug.Trace
 import Models
@@ -851,7 +851,7 @@ unifyProzedur add1 add2 all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, a
 
 unifyProzedur' :: Bool -> RegisterKeller -> RegisterKeller
 unifyProzedur' weiter all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  if weiter && stackEmpty stack
+  if weiter && not (stackEmpty stack)
     then check2Unify (getD (stackPeekTop stack) stack) (getD (stackPeekTop (stackPop stack)) stack) weiter (addressreg, (stackPop $ stackPop stack, us, trail))
     else ((not weiter, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
 
