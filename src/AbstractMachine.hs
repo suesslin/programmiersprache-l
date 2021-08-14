@@ -560,7 +560,9 @@ isSameVariableName _ _ = False
  -}
 
 sAdd :: RegisterKeller -> Argument -> Argument -> SAddAdd
-sAdd rs symbArg mode = sAddWhile rs symbArg (sAddHandleMode rs mode (Nil, Pointer 0))
+sAdd rs symbArg mode =
+  trace ("sAdd is called with rs being:\n" ++ show rs ++ "\n\nsymbArg being:\n" ++ show symbArg ++ "\n\nmode being:\n" ++ show mode) $
+    sAddWhile rs symbArg (sAddHandleMode rs mode (Nil, Pointer 0))
 
 type SAddI = Pointer
 
@@ -581,28 +583,31 @@ sAddHandleMode
       _ -> error "Unexpected mode in sAdd"
 
 sAddWhile :: RegisterKeller -> Argument -> (SAddAdd, SAddI) -> SAddAdd
-sAddWhile (rs, (Stack [], us, trail)) _ _ = Nil
+sAddWhile (rs, (Stack [], us, trail)) _ _ = trace "sAddWhile returns Nil" Nil
 sAddWhile
   rs@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   symArg
   (add, i)
     | not $ isStackAtLocationEndEnv i stack && isPNil add =
-      trace "So far so good..." $
+      trace ("sAddWhile with at location ont end env and add is nil called using values:\nadd: " ++ show add ++ "\n\ni: " ++ show i ++ "\n\nrs:\n" ++ show rs) $
         sAddWhile rs symArg (sAddNewAddIfVar i add symArg stack, i +<- 1)
-    | otherwise = trace "A sad otherwise" (i -<- 1) -- this is debateable but makes function result fit S 147 example
+    | otherwise = trace ("sAddWhile reaches otherwise with values:\nadd: " ++ show add ++ "\n\ni: " ++ show i ++ "\n\nrs:\n" ++ show rs) add -- this is debateable but makes function result fit S 147 example
 
 isStackAtLocationEndEnv :: Pointer -> MLStack -> Bool
-isStackAtLocationEndEnv _ (Stack []) = False
-isStackAtLocationEndEnv i stack = isStackElemEndEnv $ stackItemAtLocation i stack
+isStackAtLocationEndEnv _ (Stack []) = trace "isStackAtLocationEndEnv is False" False
+isStackAtLocationEndEnv i stack = trace ("isStackAtLocationEndEnv has values i=" ++ show i ++ " and stack:\n" ++ show stack) isStackElemEndEnv $ stackItemAtLocation i stack
 
 sAddNewAddIfVar ::
   SAddI -> SAddAdd -> Argument -> MLStack -> SAddAdd
-sAddNewAddIfVar _ add _ (Stack []) = trace "var1" add
-sAddNewAddIfVar i add (ATVar (V argSym) _) stack = trace "var2" $
+sAddNewAddIfVar _ add _ (Stack []) =
+  trace
+    ("sAddNewAddIfVar reached with add: " ++ show add)
+    add
+sAddNewAddIfVar i add (ATVar (V argSym) _) stack = trace "sAddNewAddIfVar ATVar case" $
   case stackItemAtLocation i stack of
     (CodeArg (ATVar (V stackSym) addr)) ->
-      if argSym == stackSym then addr else add
-    _ -> add
+      if argSym == stackSym then trace ("Stack item at i was ATVar and symbols equalled, returning addr = " ++ show addr) addr else trace "stack item at i was ATVar but symbols weren't equal" add
+    _ -> trace ("Stack item at i is not ATVar, returnin add = " ++ show add) add
 sAddNewAddIfVar _ _ _ _ = error "Unexpected call in sAddNewAddIfvar"
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
@@ -735,8 +740,8 @@ unify arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
 
 unifyPushModus :: Argument -> RegisterKeller -> RegisterKeller
 unifyPushModus arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = case arg of
-  ATVar var add -> trace ("Should be pushing: " ++ show arg)((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg (ATVar var (sAdd all arg ATUnify))) stack, us, trail))
-  ATStr atom ar -> trace ("Should be pushing: "++ show arg)((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) stack, us, trail))
+  ATVar var add -> trace ("Should be pushing: " ++ show arg) ((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg (ATVar var (sAdd all arg ATUnify))) stack, us, trail))
+  ATStr atom ar -> trace ("Should be pushing: " ++ show arg) ((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) stack, us, trail))
   _ -> error "Mitgegebenes Argument für PushModus muss Lineares Atom oder eine Variable sein"
 
 unifyNonPushModus :: Argument -> RegisterKeller -> RegisterKeller
@@ -860,7 +865,7 @@ unifyProzedur add1 add2 all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, a
 unifyProzedur' :: Bool -> MLStack -> RegisterKeller -> RegisterKeller
 unifyProzedur' weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   if weiter && not (stackEmpty hilfsstack)
-    then trace "Entering check2Unify\n" check2Unify (getD (stackPeekTop hilfsstack) hilfsstack) (getD (stackPeekTop (stackPop hilfsstack)) hilfsstack)  weiter (stackPop $ stackPop hilfsstack) all
+    then trace "Entering check2Unify\n" check2Unify (getD (stackPeekTop hilfsstack) hilfsstack) (getD (stackPeekTop (stackPop hilfsstack)) hilfsstack) weiter (stackPop $ stackPop hilfsstack) all
     else ((not weiter, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
 
 --Holt die dereferenierte Adresse des StackElementes
@@ -873,18 +878,19 @@ getD (CodeArg (ATVar _ Nil)) _ = Nil
 getD (CodeArg (ATVar _ pointer)) stack = deref stack pointer
 getD (CodeArg _) _ = Nil
 
-check2Unify :: Pointer -> Pointer -> Bool -> MLStack ->RegisterKeller -> RegisterKeller
+check2Unify :: Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check2Unify d1 d2 weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   if d1 /= d2
     then
       let arg@(CodeArg (ATVar var symb)) = stackItemAtLocation d1 stack
-       in trace "Entering check2UnifyIf\n"check2UnifyIf arg d1 d2 weiter hilfsstack all
+       in trace "Entering check2UnifyIf\n" check2UnifyIf arg d1 d2 weiter hilfsstack all
     else trace "Entering unifyProzedur', after check2Unify\n" unifyProzedur' weiter hilfsstack all
 
 check2UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check2UnifyIf arg@(CodeArg (ATVar var Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  trace "Entering unifyProzedur', after check2UnifyIf\n"
-  unifyProzedur'
+  trace
+    "Entering unifyProzedur', after check2UnifyIf\n"
+    unifyProzedur'
     weiter
     (stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var d2)) hilfsstack)
     ( (b, t, c, r, p, up, e, ut, tt +<- 1, pc, sc, ac),
@@ -900,11 +906,12 @@ check2UnifyIf _ _ _ _ _ _ = error "Nur mit Argumenten des Typs ATVar soll diese 
 
 check3UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check3UnifyIf arg2@(CodeArg (ATVar var2 Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  trace "Entering unifyProzedur', after check3UnifyIf\n"
-  unifyProzedur'
+  trace
+    "Entering unifyProzedur', after check3UnifyIf\n"
+    unifyProzedur'
     weiter
     (stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var2 d1)) hilfsstack)
-    ((b, t, c, r, p, up, e, ut, tt +<- 1, pc, sc, ac),
+    ( (b, t, c, r, p, up, e, ut, tt +<- 1, pc, sc, ac),
       ( stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var2 d1)) stack,
         us,
         stackReplaceAtLocationMLStack (tt +<- 1) (CodeAddress d2) trail
@@ -925,8 +932,9 @@ checkForUnify _ _ _ _ _ _ =
 pushD1D2 :: Pointer -> Pointer -> Int -> Arity -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 pushD1D2 d1 d2 i arity weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   | i <= arity =
-    trace ("Entering pushD1D2\ni: " ++ show i ++ "\narity: " ++ show arity ++ "\n")
-    pushD1D2
+    trace
+      ("Entering pushD1D2\ni: " ++ show i ++ "\narity: " ++ show arity ++ "\n")
+      pushD1D2
       d1
       d2
       (i + 1)
@@ -934,7 +942,6 @@ pushD1D2 d1 d2 i arity weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, 
       weiter
       (stackPush (CodeAddress (d2 +<- i)) $ stackPush (CodeAddress (d1 +<- i)) hilfsstack)
       all
-      
   | otherwise = trace "Entering unifyProzedur', after pushD1D2\n" unifyProzedur' weiter hilfsstack all
 
 {--------------------------------------------------------------------
@@ -993,8 +1000,8 @@ isATEndEnv (CodeArg (ATEndEnv _)) = True
 isATEndEnv _ = False
 
 sAddIfThenElse :: RegisterKeller -> Argument -> Pointer -> Pointer -> Pointer
-sAddIfThenElse rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg@(ATVar symb pointer) i add = 
-  if isVarSameSymbol arg (stackItemAtLocation i stack) 
+sAddIfThenElse rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg@(ATVar symb pointer) i add =
+  if isVarSameSymbol arg (stackItemAtLocation i stack)
     then pointer
     else add
 sAddIfThenElse _ _ _ _ = error "arg is supposed to be ATVar"
