@@ -398,12 +398,6 @@ testDeref =
       (Pointer 3)
       (deref derefStack (Pointer 6))
 
-testStackItemAtLocationDerefUp =
-  TestCase $
-    assertEqual
-    "stackItemAtLocation (deref up) stack has to return the dereferenced Var"
-    (CodeArg (ATVar (V "X") Nil))
-    (stackItemAtLocation (deref  derefStack (Pointer 6)) derefStack)
 --Tests für Unify
 unifyStack = Stack [CodeArg (ATStr (A "v") 1), CodeArg (ATVar (V "V") Nil),CodeArg (ATVar (V "V") (Pointer 1))]
 --der unifyPush test soll nur stack, t, pc, verändern, deshalb kann der rest nil/0/leer sein (b, t, c, r, p, up, e, ut, tt, pc, sc, ac),
@@ -467,9 +461,9 @@ testUnifyNonPushStrThenCase =
         StackAddress (Pointer 10)
       ], Stack [])))
 
-testUnifyNonPushStrElseCaseSymbolNotSame = 
+testUnifyNonPushStrElseCaseSymbolNotSame =
   TestCase $
-    assertEqual 
+    assertEqual
     "unifyNonPushModus should land in a if then else case, when the dereferenced up /= Var symbol2 Nil, in which the backtrack flag has to be set as True when the dereferenced Value at up is not the same as the given Argument"
     ((True, Pointer 6, Nil, Nil, Nil, Pointer 6, Nil, Pointer 2, Nil, 0, 0, Pointer 1),
        (Stack [
@@ -496,7 +490,7 @@ testUnifyNonPushStrElseCaseSymbolNotSame =
 
 -- addAc/restoreAcUpQ/saveAcUpQ have been tested already therefor I am not gonna differentiate further
 --(b, t, c, r, p, up, e, ut, tt, pc, sc, ac)
-testUnifyNonPushStrElseCaseSymbolSameAritySmaller1 = 
+testUnifyNonPushStrElseCaseSymbolSameAritySmaller1 =
   TestCase $
     assertEqual
      "unifyNonPush should land in a if then else case, when the dereferenced up /= Var symbol2 Nil, in which the functions addAc(-1)/addAc(arity), restoreAcUpQ, saveAcUpQ have to be called depending on the arity"
@@ -539,6 +533,36 @@ testUnifyNonPushStrElseCaseSymbolSameAritySmaller1 =
         StackAddress (Pointer 9),
         StackAddress (Pointer 10)
       ], Stack [])))
+--TODO: tests for unifyNonPushModus (ATVar symb add)
+--unifyHelpers
+testSameSymbol =
+  TestCase $
+    assertEqual
+    ""
+    True
+    (sameSymbol (ATVar (V"Y") Nil) ((False, Pointer 11, Pointer 2, Pointer 3, Pointer 5, Pointer 9, Pointer 10, Pointer 0, Pointer 0, 0, 0, Nil),
+    (Stack [
+      CodeArg (ATVar (V "X") Nil),
+      CodeArg (ATEndEnv 1),
+      CodeAddress (Pointer 14),
+      CodeAddress Nil,
+      CodeAddress (Pointer 37),
+      TrailAddress (Pointer 0),
+      StackAddress (Pointer 9999),
+      StackAddress (Pointer 9),
+      CodeArg (ATStr (A "p") 1),
+      CodeArg (ATVar (V "X") Nil),
+      CodeArg (ATVar (V "Y") Nil),
+      CodeArg (ATEndEnv 1)
+    ], Stack [], Stack [])))
+
+--unifyProcedureTests
+testUnifyProzedurStackEmpty =
+  TestCase $
+    assertEqual
+    "unifyProcedure should set the backtrack flag to True when called with an empty Stack"
+    ((True, Pointer 6, Pointer 1, Nil, Nil, Pointer 7, Nil, Pointer 2, Nil, 0, 0, Pointer 2),(Stack [], Stack [], Stack []))
+    (unifyProzedur (Pointer 1) (Pointer 2) ((True, Pointer 6, Pointer 1, Nil, Nil, Pointer 7, Nil, Pointer 2, Nil, 0, 0, Pointer 2),(Stack [], Stack [], Stack [])))
 {-
 -- First call instruction, p. 129
 testCallOnFirst =
@@ -725,6 +749,32 @@ testLinearizeMultipleAtom =
       "Calling linearize on multiple atoms should result in correct linearization" -}
 
 -- s_add
+testStackReplaceAtLocationMLStack =
+  TestCase $
+    assertEqual
+    "The function should replace item x at pos i"
+    (Stack [
+      CodeAddress (Pointer 0),
+      CodeAddress (Pointer 1),
+      CodeAddress (Pointer 2),
+      StackAddress (Pointer 3),
+      CodeAddress (Pointer 4),
+      CodeAddress (Pointer 5),
+      CodeAddress (Pointer 6),
+      CodeAddress (Pointer 7),
+      CodeAddress (Pointer 8)
+    ])
+    (stackReplaceAtLocationMLStack (Pointer 3) (StackAddress (Pointer 3)) (Stack [
+      CodeAddress (Pointer 0),
+      CodeAddress (Pointer 1),
+      CodeAddress (Pointer 2),
+      CodeAddress (Pointer 3),
+      CodeAddress (Pointer 4),
+      CodeAddress (Pointer 5),
+      CodeAddress (Pointer 6),
+      CodeAddress (Pointer 7),
+      CodeAddress (Pointer 8)
+    ]))
 
 testSAddUnifyModeBoundVariable = undefined
 
@@ -980,8 +1030,7 @@ unifyMakroTests =
     testSaveAcUpQUpBigger,
     testSaveAcUpQUpEqualsDerefUp,
     testSaveAcUpQArityEquals0,
-    testDeref,
-    testStackItemAtLocationDerefUp
+    testDeref
   ]
 unifyTests =
   [
@@ -990,6 +1039,14 @@ unifyTests =
     testUnifyNonPushStrThenCase,
     testUnifyNonPushStrElseCaseSymbolNotSame,
     testUnifyNonPushStrElseCaseSymbolSameAritySmaller1
+  ]
+unifyHelperTests =
+  [
+    testSameSymbol
+  ]
+stackReplaceTests =
+  [
+    testStackReplaceAtLocationMLStack
   ]
 {- helpersTests =
   [ testCFirstPkAndZiel,
