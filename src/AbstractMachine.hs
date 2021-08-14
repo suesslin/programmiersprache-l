@@ -735,7 +735,7 @@ unify arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
 
 unifyPushModus :: Argument -> RegisterKeller -> RegisterKeller
 unifyPushModus arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = case arg of
-  ATVar var add -> trace ("Should be pushing: " ++ show arg)((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg (ATVar var (sAdd2 all arg ATUnify))) stack, us, trail))
+  ATVar var add -> trace ("Should be pushing: " ++ show arg)((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg (ATVar var (sAdd all arg ATUnify))) stack, us, trail))
   ATStr atom ar -> trace ("Should be pushing: "++ show arg)((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) stack, us, trail))
   _ -> error "Mitgegebenes Argument für PushModus muss Lineares Atom oder eine Variable sein"
 
@@ -750,7 +750,7 @@ unifyVarNonPIfThenElse :: Argument -> RegisterKeller -> RegisterKeller
 unifyVarNonPIfThenElse arg@(ATVar var add) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   if sameSymbol arg all
     then addToStackAndTrailVar arg all
-    else restoreT $ unifyProzedur (deref stack (sAdd2 all arg ATUnify)) up $ saveT all
+    else restoreT $ unifyProzedur (deref stack (sAdd all arg ATUnify)) up $ saveT all
 unifyVarNonPIfThenElse arg _ = error "Argument has to be ATVar"
 
 arityUpToSc :: RegisterKeller -> RegisterKeller
@@ -775,7 +775,7 @@ saveT :: RegisterKeller -> RegisterKeller
 saveT all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = ((b, t, c, r, p, up, e, ut +<- 1, tt, pc, sc, ac), (stack, stackReplaceAtLocationMLStack (ut +<- 1) (CodeAddress t) us, trail))
 
 sameSymbol :: Argument -> RegisterKeller -> Bool
-sameSymbol arg@(ATVar var add) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = stackItemAtLocation (deref stack (sAdd2 all arg ATUnify)) stack == CodeArg (ATVar var Nil)
+sameSymbol arg@(ATVar var add) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = stackItemAtLocation (deref stack (sAdd all arg ATUnify)) stack == CodeArg (ATVar var Nil)
 sameSymbol _ _ = error "Vergleich mit dieser Funktion war für Variablen gedacht"
 
 addToStackAndTrailVar :: Argument -> RegisterKeller -> RegisterKeller
@@ -783,9 +783,9 @@ addToStackAndTrailVar
   arg@(ATVar var add)
   all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
     ( (b, t, c, r, p, up, e, ut, tt +<- 1, pc, sc, ac),
-      ( stackReplaceAtLocationMLStack (deref stack (sAdd2 all arg ATUnify)) (CodeArg (ATVar var up)) stack,
+      ( stackReplaceAtLocationMLStack (deref stack (sAdd all arg ATUnify)) (CodeArg (ATVar var up)) stack,
         us,
-        stackReplaceAtLocationMLStack (tt +<- 1) (StackAddress (sAdd2 all arg ATUnify)) trail
+        stackReplaceAtLocationMLStack (tt +<- 1) (StackAddress (sAdd all arg ATUnify)) trail
       )
     )
 addToStackAndTrailVar _ _ = error "War für Variablen gedacht"
@@ -973,7 +973,7 @@ initRegstack code =
 promptWasCalled :: Zielcode -> RegisterKeller
 promptWasCalled code = auswerten (initRegstack code) code
 
-
+{-
 sAdd2 :: RegisterKeller -> Argument -> Argument -> Pointer
 sAdd2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg ATUnify = sAddWhile2 rs arg e Nil
 sAdd2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg ATPush =
@@ -1002,4 +1002,4 @@ sAddIfThenElse _ _ _ _ = error "arg is supposed to be ATVar"
 isVarSameSymbol :: Argument -> StackElement -> Bool
 isVarSameSymbol (ATVar symb _) (CodeArg (ATVar symb2 _)) = symb == symb2
 isVarSameSymbol _ _ = False
-
+-}
