@@ -535,26 +535,7 @@ testUnifyNonPushStrElseCaseSymbolSameAritySmaller1 =
       ], Stack [])))
 --TODO: tests for unifyNonPushModus (ATVar symb add)
 --unifyHelpers
-testSameSymbol =
-  TestCase $
-    assertEqual
-    ""
-    True
-    (sameSymbol (ATVar (V"Y") Nil) ((False, Pointer 11, Pointer 2, Pointer 3, Pointer 5, Pointer 9, Pointer 10, Pointer 0, Pointer 0, 0, 0, Nil),
-    (Stack [
-      CodeArg (ATVar (V "X") Nil),
-      CodeArg (ATEndEnv 1),
-      CodeAddress (Pointer 14),
-      CodeAddress Nil,
-      CodeAddress (Pointer 37),
-      TrailAddress (Pointer 0),
-      StackAddress (Pointer 9999),
-      StackAddress (Pointer 9),
-      CodeArg (ATStr (A "p") 1),
-      CodeArg (ATVar (V "X") Nil),
-      CodeArg (ATVar (V "Y") Nil),
-      CodeArg (ATEndEnv 1)
-    ], Stack [], Stack [])))
+
 
 --unifyProcedureTests
 testUnifyProzedurStackEmpty =
@@ -1042,7 +1023,6 @@ unifyTests =
   ]
 unifyHelperTests =
   [
-    testSameSymbol
   ]
 stackReplaceTests =
   [
