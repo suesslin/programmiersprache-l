@@ -27,8 +27,8 @@ stackNewEmpty = Stack []
 stackPeekTop :: Stack a -> a
 stackPeekTop (Stack content) = last content
 
-stackPeekBottom :: Stack a -> a 
-stackPeekBottom (Stack content) = head content 
+stackPeekBottom :: Stack a -> a
+stackPeekBottom (Stack content) = head content
 
 stackPop :: Stack a -> Stack a
 stackPop (Stack content) = Stack (init content)
@@ -47,18 +47,19 @@ stackItemAtLocation pos (Stack content) = content !! fromIntegral (toInteger pos
 
 -- Replaces an element at a location | TODO : refactor this monster and find a better solution for padding
 stackReplaceAtLocation :: (Integral a, Ord a) => a -> b -> b -> Stack b -> Stack b
-stackReplaceAtLocation i elem paddingelem stack@(Stack content) = let len = length content 
-                                                                      i' = fromIntegral (toInteger i)
-                                                                  in  if i' > len 
-                                                                    then stackReplaceAtLocationHelper i' elem (rightPad (i'-1) paddingelem stack)
-                                                          else stackReplaceAtLocationHelper i' elem stack   
+stackReplaceAtLocation i elem paddingelem stack@(Stack content) =
+  let len = length content
+      i' = fromIntegral (toInteger i)
+   in if i' > len
+        then stackReplaceAtLocationHelper i' elem (rightPad (i' -1) paddingelem stack)
+        else stackReplaceAtLocationHelper i' elem stack
 
-stackReplaceAtLocationHelper :: Int -> b -> Stack b -> Stack b 
+stackReplaceAtLocationHelper :: Int -> b -> Stack b -> Stack b
 stackReplaceAtLocationHelper i elem (Stack []) = Stack [elem]
 stackReplaceAtLocationHelper i elem (Stack content) = Stack $ concat [take i content, [elem], drop (i + 1) content]
 
-rightPad :: Int -> a -> Stack a -> Stack a  
-rightPad targetlen item (Stack content) = Stack (content ++ replicate (targetlen - length content) item)  
+rightPad :: Int -> a -> Stack a -> Stack a
+rightPad targetlen item (Stack content) = Stack (content ++ replicate (targetlen - length content) item)
 
 stackWriteToLocation :: (Num a, Ord a) => a -> b -> Stack b -> Stack b
 stackWriteToLocation pos val (Stack []) = Stack [val]
