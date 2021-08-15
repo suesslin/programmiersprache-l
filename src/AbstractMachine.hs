@@ -297,7 +297,7 @@ push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
     ( stackReplaceAtLocationMLStack
         (t +<- 6)
         (StackAddress 9998)
-        (stackReplaceAtLocationMLStack
+        ( stackReplaceAtLocationMLStack
             (t +<- 5)
             (TrailAddress tt)
             ( stackReplaceAtLocationMLStack
@@ -309,23 +309,23 @@ push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
                     ( stackReplaceAtLocationMLStack
                         (t +<- 3)
                         (StackAddress 9999)
-                         ( stackReplaceAtLocationMLStack
-                          (t +<- 2)
-                          (CodeAddress c)
-                          ( stackReplaceAtLocationMLStack
-                              (t +<- 1)
-                              (CodeAddress $ cFirst code)
-                               stack
+                        ( stackReplaceAtLocationMLStack
+                            (t +<- 2)
+                            (CodeAddress c)
+                            ( stackReplaceAtLocationMLStack
+                                (t +<- 1)
+                                (CodeAddress $ cFirst code)
+                                stack
+                            )
                         )
                     )
                 )
             )
-          )
         ),
       us,
       trail
-    ))
-
+    )
+  )
 push ATBegEnv ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
   ((b, t, c, r, p +<- 1, up, Nil, ut, tt, pc, sc, ac), (stack, us, trail))
 push
@@ -549,23 +549,20 @@ sAddWhile
   symArg
   (add, i)
     | not $ isStackAtLocationEndEnv i stack && isPNil add =
-      sAddWhile rs symArg (sAddNewAddIfVar i add symArg stack, i +<- 1)
+      sAddWhileIfStackAtIVarOfSymbol rs (add, i) symArg
     | otherwise = add -- this is debateable but makes function result fit S 147 example
 
 isStackAtLocationEndEnv :: Pointer -> MLStack -> Bool
 isStackAtLocationEndEnv _ (Stack []) = False
 isStackAtLocationEndEnv i stack = isStackElemEndEnv $ stackItemAtLocation i stack
 
-sAddNewAddIfVar ::
-  SAddI -> SAddAdd -> Argument -> MLStack -> SAddAdd
-sAddNewAddIfVar _ add _ (Stack []) =
-  add
-sAddNewAddIfVar i add (ATVar (V argSym) _) stack =
+sAddWhileIfStackAtIVarOfSymbol :: RegisterKeller -> (SAddAdd, SAddI) -> Argument -> SAddAdd
+sAddWhileIfStackAtIVarOfSymbol rs@(_, (stack, _, _)) (add, i) arg@(ATVar argSym _) =
   case stackItemAtLocation i stack of
-    (CodeArg (ATVar (V stackSym) addr)) ->
-      if argSym == stackSym then i else add
-    _ -> add
-sAddNewAddIfVar _ _ _ _ = error "Unexpected call in sAddNewAddIfvar"
+    (CodeArg (ATVar stackSym _)) ->
+      if stackSym == argSym then i else sAddWhile rs arg (add, i +<- 1)
+    _ -> sAddWhile rs arg (add, i +<- 1)
+sAddWhileIfStackAtIVarOfSymbol _ _ _ = error "Unexpected call in sAddNewAddIfvar"
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
 
@@ -648,7 +645,7 @@ cNext zielcode Nil = Nil
 cNext zielcode@(Stack code) p@(Pointer address) =
   case stackLocationFirstItemOfKind' "pushML ATBeg" (transformN (drop (address + 1) code) 12) of
     (Just relativeItemLocation) -> if ((p +<- 1) + Pointer relativeItemLocation) == cGoal zielcode then Nil else (p +<- 1) + Pointer relativeItemLocation
-    Nothing -> Nil 
+    Nothing -> Nil
 
 cLast :: Zielcode -> Pointer
 cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind "prompt" (transformN code 6)
