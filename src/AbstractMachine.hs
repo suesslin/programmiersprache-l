@@ -297,7 +297,7 @@ push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
     ( stackReplaceAtLocationMLStack
         (t +<- 6)
         (StackAddress 9998)
-        ( stackReplaceAtLocationMLStack
+        (stackReplaceAtLocationMLStack
             (t +<- 5)
             (TrailAddress tt)
             ( stackReplaceAtLocationMLStack
@@ -307,21 +307,25 @@ push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
                     (t +<- 3)
                     (StackAddress 9999)
                     ( stackReplaceAtLocationMLStack
-                        (t +<- 2)
-                        (CodeAddress c)
-                        ( stackReplaceAtLocationMLStack
-                            (t +<- 1)
-                            (StackAddress $ cFirst code)
-                            stack
+                        (t +<- 3)
+                        (StackAddress 9999)
+                         ( stackReplaceAtLocationMLStack
+                          (t +<- 2)
+                          (CodeAddress c)
+                          ( stackReplaceAtLocationMLStack
+                              (t +<- 1)
+                              (CodeAddress $ cFirst code)
+                               stack
                         )
                     )
                 )
             )
+          )
         ),
       us,
       trail
-    )
-  )
+    ))
+
 push ATBegEnv ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) _ =
   ((b, t, c, r, p +<- 1, up, Nil, ut, tt, pc, sc, ac), (stack, us, trail))
 push
@@ -515,52 +519,6 @@ linearizeV (LTNVar atom : rest) akk = linearizeV rest (linearizeNV atom akk)
 -- TODO Eventuell Problem, siehe Zulip; maybe refactor using takeWhile
 -- TODO decide on solution version
 
-{- {- sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
-sAdd
-  all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
-  symb
-  ATUnify = sAddHelper all (stackItemAtLocation e stack) e -}
-{- sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
-sAdd all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) symb ATUnify = sAddHelper all (stackItemAtLocation e stack) e
-sAdd all@(addressreg@(b, t, Nil, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) symb ATPush = Nil -- TODO correct?
-sAdd all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) symb ATPush = sAddHelper all (stackItemAtLocation (c + 3) stack) (c + 3)
-sAdd _ _ _ = error "something went wrong in s_add"
-
-sAddHelper :: RegisterKeller -> StackElement -> Pointer -> Pointer
-sAddHelper (reg, stacks@(stack, us, trail)) (CodeArg (ATVar (V name) addr)) currentLoc =
-  addr
-sAddHelper (reg, stacks@(stack, us, trail)) (CodeArg (ATEndEnv _)) currentLoc = Nil --stand in für stack argument o.ä. => EndEnv Pointer/Stackinhalt
-sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc =
-  sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
-sAddHelper (reg, stacks@(stack, us, trail)) item currentLoc = sAddHelper (reg, stacks) (stackItemAtLocation (currentLoc + 1) stack) currentLoc + 1
- -}
-
-sAdd :: RegisterKeller -> Argument -> Argument -> Pointer
-sAdd (regs, (Stack [], us, trail)) var modearg = Nil
-sAdd regkeller@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack@(Stack content), us, trail)) targetvar@(ATVar _ _) modearg = Nil
-{-    let stackpart@(Stack content') = Stack (takeWhile (not . isStackElemEndEnv) content)
-   in case modearg of
-        ATUnify -> sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation e stackpart) content')) targetvar
-        ATPush ->
-          if safePointerFromStackAtLocation c stack == Nil
-            then sAddHelper stackpart targetvar
-            else error $ show content ++ "           " ++ show stackpart ++ "hwllo"--sAddHelper (Stack (dropWhile (\x -> x /= stackItemAtLocation (c +<- 3) stackpart) content)) targetvar
-        _ -> error "sAdd was called with wrong modearg"
-sAdd _ _ _ = error "sAdd called on non variable"  -}
-
-sAddHelper :: Stack StackElement -> Argument -> Pointer
-sAddHelper stackpart@(Stack content) targetvar@(ATVar symb addr) =
-   let stackpart' = error $ show stackpart ++ show (stackPeekBottom stackpart)--stackPop stackpart
-   in if isSameVariableName (CodeArg targetvar) (stackPeekBottom stackpart)
-        then error "first" --addr
-        else error "snd" --sAddHelper stackpart' targetvar
-sAddHelper _ _ = error "Error in sAdd Helper"
-
-isSameVariableName :: StackElement -> StackElement -> Bool
-isSameVariableName (CodeArg (ATVar symb1 _)) (CodeArg (ATVar symb2 _)) = symb1 == symb2
-isSameVariableName _ _ = False
- -}
-
 sAdd :: RegisterKeller -> Argument -> Argument -> SAddAdd
 sAdd rs symbArg mode =
   sAddWhile rs symbArg (sAddHandleMode rs mode (Nil, Pointer 0))
@@ -684,11 +642,11 @@ cFirst :: Zielcode -> Pointer
 cFirst (Stack code) = Pointer $ stackLocationFirstItemOfKind "pushML ATBeg" (transformN code 12)
 
 cNext :: Zielcode -> Pointer -> Pointer
-cNext (Stack code) Nil = Nil
-cNext (Stack code) p@(Pointer address) =
+cNext zielcode Nil = Nil
+cNext zielcode@(Stack code) p@(Pointer address) =
   case stackLocationFirstItemOfKind' "pushML ATBeg" (transformN (drop (address + 1) code) 12) of
-    (Just relativeItemLocation) -> (p +<- 1) + Pointer relativeItemLocation
-    Nothing -> Pointer 0
+    (Just relativeItemLocation) -> if ((p +<- 1) + Pointer relativeItemLocation) == cGoal zielcode then Nil else (p +<- 1) + Pointer relativeItemLocation
+    Nothing -> Nil 
 
 cLast :: Zielcode -> Pointer
 cLast (Stack code) = Pointer $ stackLocationFirstItemOfKind "prompt" (transformN code 6)
@@ -777,6 +735,7 @@ saveT :: RegisterKeller -> RegisterKeller
 saveT all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = ((b, t, c, r, p, up, e, ut +<- 1, tt, pc, sc, ac), (stack, stackReplaceAtLocationMLStack (ut +<- 1) (CodeAddress t) us, trail))
 
 sameSymbol :: Argument -> RegisterKeller -> Bool
+sameSymbol arg@(ATVar var Nil) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = False
 sameSymbol arg@(ATVar var add) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = stackItemAtLocation (deref stack (sAdd all arg ATUnify)) stack == CodeArg (ATVar var Nil)
 sameSymbol _ _ = error "Vergleich mit dieser Funktion war für Variablen gedacht"
 

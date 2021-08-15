@@ -224,7 +224,7 @@ testPushCHP =
     assertEqual
       "push chp should update stack an registers accordingly."
       ((False, Pointer 5, Pointer 0, Pointer 1, Pointer 1, Pointer 6, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil),
-        (Stack [CodeAddress (Pointer 2), CodeAddress (Pointer 0), StackAddress (Pointer 1), StackAddress (Pointer 1), TrailAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail))
+        (Stack [CodeAddress (Pointer 0), CodeAddress (Pointer 0), StackAddress (Pointer 9999), StackAddress (Pointer 1), TrailAddress (Pointer 0), StackAddress (Pointer 9998)], initialUs, initialTrail))
       (push ATChp pushTestRegs pushTestCode')
 
 testPushEndAtom =
@@ -357,7 +357,7 @@ testSaveAcUpQ =
   TestCase $
     assertEqual
       "saveAcUpQ should save the values of ac and up in us when up is smaller then the Pointer at c+5, the dereferenced up /= up and the arity of the dereferenced up in stack /= 0"
-      ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 0, Pointer 6, Pointer 9, Pointer 8, 9, 10, Pointer 0), (Stack [CodeArg (ATStr (A "x") 2),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [StackAddress (Pointer 11), StackAddress (Pointer 6)], Stack []))
+      ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 0, Pointer 6, Pointer 9, Pointer 8, 9, 10, Pointer 1), (Stack [CodeArg (ATStr (A "x") 2),CodeArg (ATVar (V "X") (Pointer 0)),CodeArg (ATVar (V "X") (Pointer 1)),CodeArg (ATVar (V "X") (Pointer 2)),CodeArg (ATVar (V "X") (Pointer 3)),CodeArg (ATVar (V "X") (Pointer 4)),CodeArg (ATVar (V "X") (Pointer 5)),CodeArg (ATVar (V "X") (Pointer 6)),CodeArg (ATVar (V "X") (Pointer 7))], Stack [StackAddress (Pointer 11), StackAddress (Pointer 6)], Stack []))
       (saveAcUpQ ((False, Pointer 7, Pointer 2, Pointer 3, Pointer 4, Pointer 5, Pointer 6, Pointer 7, Pointer 8, 9, 10, Pointer 11), (saveAcUpStack, Stack [], Stack [])))
 
 testSaveAcUpQUpBigger =
@@ -603,7 +603,7 @@ testCallElseCase =
     assertEqual
       "call should set p to stack (c), then set stack (c) to c_next of current stack(c) value."
       ((False, Pointer 2, Pointer 1, Pointer 1, Pointer 5, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0),
-        (Stack [StackAddress (Pointer 0), CodeAddress (Pointer 7)], initialUs, initialTrail))
+        (Stack [StackAddress (Pointer 0), CodeAddress Nil], initialUs, initialTrail))
       (call ((False, Pointer 2, Pointer 1, Pointer 1, Pointer 2, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0), (Stack [StackAddress (Pointer 0), CodeAddress (Pointer 5)], initialUs, initialTrail)) callCode)
 
 {-     
