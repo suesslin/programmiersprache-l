@@ -293,31 +293,29 @@ push
     )
 -- Push CHP
 push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code =
-  ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e, 0, tt, 0, sc, Nil),(
-       stackReplaceAtLocationMLStack
-           (t +<- 6)
-            (StackAddress 9998)
-             ( stackReplaceAtLocationMLStack
+  ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e, 0, tt, 0, sc, Nil),
+    ( stackPush
+        (StackAddress 9999)
+        ( stackPush
+            (StackAddress 9999)
+            ( stackReplaceAtLocationMLStack
                 (t +<- 5)
                 (TrailAddress tt)
                 ( stackReplaceAtLocationMLStack
                     (t +<- 4)
                     (StackAddress e)
                     ( stackReplaceAtLocationMLStack
-                        (t +<- 3)
-                        (StackAddress 9999)
-                         ( stackReplaceAtLocationMLStack
-                          (t +<- 2)
-                          (CodeAddress c)
-                          ( stackReplaceAtLocationMLStack
-                              (t +<- 1)
-                              (StackAddress $ cFirst code)
-                               stack
+                        (t +<- 2)
+                        (StackAddress c)
+                        ( stackReplaceAtLocationMLStack
+                            (t +<- 1)
+                            (StackAddress $ cFirst code)
+                            stack
                         )
                     )
                 )
-              )
-          ),
+            )
+        ),
       us,
       trail
     )
@@ -563,8 +561,7 @@ isSameVariableName _ _ = False
 
 sAdd :: RegisterKeller -> Argument -> Argument -> SAddAdd
 sAdd rs symbArg mode =
-  trace ("sAdd is called with rs being:\n" ++ show rs ++ "\n\nsymbArg being:\n" ++ show symbArg ++ "\n\nmode being:\n" ++ show mode) $
-    sAddWhile rs symbArg (sAddHandleMode rs mode (Nil, Pointer 0))
+  sAddWhile rs symbArg (sAddHandleMode rs mode (Nil, Pointer 0))
 
 type SAddI = Pointer
 
@@ -576,12 +573,11 @@ sAddHandleMode
   mode
   (add, i) = trace "a sad(d) handler" $
     case mode of
-      ATUnify -> trace "Unify me" (add, e)
+      ATUnify -> (Nil, e)
       ATPush ->
-        trace "Push me" $
-          if isPNil c
-            then trace "So what" (Nil, i)
-            else trace "Else!" (add, safePointerFromStackAtLocation (c +<- 3) stack)
+        if isPNil c
+          then (Nil, i)
+          else (Nil, safePointerFromStackAtLocation (c +<- 3) stack)
       _ -> error "Unexpected mode in sAdd"
 
 sAddWhile :: RegisterKeller -> Argument -> (SAddAdd, SAddI) -> SAddAdd
@@ -591,25 +587,22 @@ sAddWhile
   symArg
   (add, i)
     | not $ isStackAtLocationEndEnv i stack && isPNil add =
-      trace ("sAddWhile with at location ont end env and add is nil called using values:\nadd: " ++ show add ++ "\n\ni: " ++ show i ++ "\n\nrs:\n" ++ show rs) $
-        sAddWhile rs symArg (sAddNewAddIfVar i add symArg stack, i +<- 1)
-    | otherwise = trace ("sAddWhile reaches otherwise with values:\nadd: " ++ show add ++ "\n\ni: " ++ show i ++ "\n\nrs:\n" ++ show rs) add -- this is debateable but makes function result fit S 147 example
+      sAddWhile rs symArg (sAddNewAddIfVar i add symArg stack, i +<- 1)
+    | otherwise = add -- this is debateable but makes function result fit S 147 example
 
 isStackAtLocationEndEnv :: Pointer -> MLStack -> Bool
-isStackAtLocationEndEnv _ (Stack []) = trace "isStackAtLocationEndEnv is False" False
-isStackAtLocationEndEnv i stack = trace ("isStackAtLocationEndEnv has values i=" ++ show i ++ " and stack:\n" ++ show stack) isStackElemEndEnv $ stackItemAtLocation i stack
+isStackAtLocationEndEnv _ (Stack []) = False
+isStackAtLocationEndEnv i stack = isStackElemEndEnv $ stackItemAtLocation i stack
 
 sAddNewAddIfVar ::
   SAddI -> SAddAdd -> Argument -> MLStack -> SAddAdd
 sAddNewAddIfVar _ add _ (Stack []) =
-  trace
-    ("sAddNewAddIfVar reached with add: " ++ show add)
-    add
-sAddNewAddIfVar i add (ATVar (V argSym) _) stack = trace "sAddNewAddIfVar ATVar case" $
+  add
+sAddNewAddIfVar i add (ATVar (V argSym) _) stack =
   case stackItemAtLocation i stack of
     (CodeArg (ATVar (V stackSym) addr)) ->
-      if argSym == stackSym then trace ("Stack item at i was ATVar and symbols equalled, returning addr = " ++ show addr) addr else trace "stack item at i was ATVar but symbols weren't equal" add
-    _ -> trace ("Stack item at i is not ATVar, returnin add = " ++ show add) add
+      if argSym == stackSym then i else add
+    _ -> add
 sAddNewAddIfVar _ _ _ _ = error "Unexpected call in sAddNewAddIfvar"
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
@@ -624,8 +617,7 @@ deref stack addr =
 
 derefVar :: MLStack -> Pointer -> Pointer -> StackElement -> Pointer
 derefVar stack addr addr2 stackItemVar =
-  let stack' = stackReplaceAtLocationMLStack addr stackItemVar stack
-   in if isPNil addr2 then addr else deref stack' addr2
+  if isPNil addr2 then addr else deref stack addr2
 
 -- Aritätsfunktion; gibt Arität eines Atoms zurück
 
@@ -725,7 +717,7 @@ saveAcUpQ all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
   | up <= safePointerFromStackAtLocation (c +<- 5) stack
       && deref stack up /= up
       && getArity (stackItemAtLocation (deref stack up) stack) /= 0 =
-    ( (b, t, c, r, p, deref stack (up +<- 1), e, ut +<- 2, tt, pc, sc, 1),
+    ( (b, t, c, r, p, deref stack (up +<- 1), e, ut +<- 2, tt, pc, sc, 0),
       ( stack,
         us <> Stack [StackAddress ac, StackAddress (up +<- 1)],
         trail
@@ -738,13 +730,13 @@ saveAcUpQ all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
 ---------------------------------------------------------------------}
 unify :: Argument -> RegisterKeller -> RegisterKeller
 unify arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
-  | pc >= 1 = p1 $ unifyPushModus arg all
-  | otherwise = p1 $ unifyNonPushModus arg all
+  | pc >= 1 = p1 $ trace "Entering unifyPushModus\n" unifyPushModus arg all
+  | otherwise = p1 $ trace "Entering unifyNonPushModus\n" unifyNonPushModus arg all
 
 unifyPushModus :: Argument -> RegisterKeller -> RegisterKeller
 unifyPushModus arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = case arg of
-  ATVar var add -> ((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg (ATVar var (sAdd all arg ATUnify))) stack, us, trail))
-  ATStr atom ar -> ((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) stack, us, trail))
+  ATVar var add -> trace ("Should be pushing: " ++ show arg) ((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg (ATVar var (sAdd all arg ATUnify))) stack, us, trail))
+  ATStr atom ar -> trace ("Should be pushing: " ++ show arg) ((b, t +<- 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t +<- 1) (CodeArg arg) stack, us, trail))
   _ -> error "Mitgegebenes Argument für PushModus muss Lineares Atom oder eine Variable sein"
 
 unifyNonPushModus :: Argument -> RegisterKeller -> RegisterKeller
@@ -783,8 +775,7 @@ saveT :: RegisterKeller -> RegisterKeller
 saveT all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = ((b, t, c, r, p, up, e, ut +<- 1, tt, pc, sc, ac), (stack, stackReplaceAtLocationMLStack (ut +<- 1) (CodeAddress t) us, trail))
 
 sameSymbol :: Argument -> RegisterKeller -> Bool
-sameSymbol arg@(ATVar var Nil) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = False
-sameSymbol arg@(ATVar var add) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = deref stack (sAdd all arg ATUnify) == Nil
+sameSymbol arg@(ATVar var add) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = stackItemAtLocation (deref stack (sAdd all arg ATUnify)) stack == CodeArg (ATVar var Nil)
 sameSymbol _ _ = error "Vergleich mit dieser Funktion war für Variablen gedacht"
 
 addToStackAndTrailVar :: Argument -> RegisterKeller -> RegisterKeller
@@ -864,12 +855,12 @@ getArity _ = error "What"
 
 --TODO unify Prozedur, setzt b im Endeffekt
 unifyProzedur :: Pointer -> Up -> RegisterKeller -> RegisterKeller
-unifyProzedur add1 add2 all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = unifyProzedur' True (stackPush (CodeAddress add2) $ stackPush (CodeAddress add1) stack) all
+unifyProzedur add1 add2 all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = trace "Entering unifyProzedur'\n" (unifyProzedur' True (stackPush (CodeAddress add2) $ stackPush (CodeAddress add1) stack) all)
 
 unifyProzedur' :: Bool -> MLStack -> RegisterKeller -> RegisterKeller
 unifyProzedur' weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  if weiter && not (stackEmpty hilfsstack) && stackSizeOf hilfsstack < stackSizeOf stack
-    then check2Unify (getD (stackPeekTop hilfsstack) hilfsstack) (getD (stackPeekTop (stackPop hilfsstack)) hilfsstack)  weiter (stackPop $ stackPop hilfsstack) all
+  if weiter && not (stackEmpty hilfsstack)
+    then trace "Entering check2Unify\n" check2Unify (getD (stackPeekTop hilfsstack) hilfsstack) (getD (stackPeekTop (stackPop hilfsstack)) hilfsstack) weiter (stackPop $ stackPop hilfsstack) all
     else ((not weiter, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
 
 --Holt die dereferenierte Adresse des StackElementes
@@ -905,7 +896,7 @@ check2UnifyIf arg@(CodeArg (ATVar var Nil)) d1 d2 weiter hilfsstack all@((b, t, 
     )
 check2UnifyIf (CodeArg (ATVar _ add)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   let arg2@(CodeArg (ATVar var2 add2)) = stackItemAtLocation d2 stack
-   in  check3UnifyIf arg2 d1 d2 weiter hilfsstack all
+   in trace "Entering check3UnifyIf\n" check3UnifyIf arg2 d1 d2 weiter hilfsstack all
 check2UnifyIf _ _ _ _ _ _ = error "Nur mit Argumenten des Typs ATVar soll diese Funktion aufgerufen werden (Check2)"
 
 check3UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
@@ -923,13 +914,13 @@ check3UnifyIf arg2@(CodeArg (ATVar var2 Nil)) d1 d2 weiter hilfsstack all@((b, t
     )
 check3UnifyIf _ d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   let (arg@(CodeArg (ATStr symb arity)), arg2@(CodeArg (ATStr symb2 arity2))) = (stackItemAtLocation d1 hilfsstack, stackItemAtLocation d2 hilfsstack)
-   in checkForUnify (arg, arg2) d1 d2 weiter hilfsstack all
+   in trace "Entering checkForUnify\n" checkForUnify (arg, arg2) d1 d2 weiter hilfsstack all
 
 checkForUnify :: (StackElement, StackElement) -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 checkForUnify (arg@(CodeArg (ATStr symb arity)), arg2@(CodeArg (ATStr symb2 arity2))) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   if symb /= symb2 || arity /= arity2
-    then unifyProzedur' False hilfsstack all
-    else pushD1D2 d1 d2 1 arity weiter hilfsstack all
+    then trace "Entering unifyProzedur', after checkForUnify\n" unifyProzedur' False hilfsstack all
+    else trace "Entering pushD1D2\n" pushD1D2 d1 d2 1 arity weiter hilfsstack all
 checkForUnify _ _ _ _ _ _ =
   error "checkForUnify is suppossed to be called with two structure cells"
 
@@ -962,7 +953,7 @@ auswerten
   code =
     let cmd = stackItemAtLocation (pToInt p) code
      in trace
-          ("I worked with:\n" ++ show cmd ++ "\nMy registers are:\n" ++ show rs ++ "Entering: " ++ show cmd ++ "\n")
+          ("I worked with:\n" ++ show cmd ++ "\nMy registers are:\n" ++ show rs)
           (auswerten (executeCommand cmd rs code) code)
 
 -- Execute command on register stack
@@ -977,7 +968,7 @@ executeCommand cmd rs code = case cmd of
 
 initRegstack :: Zielcode -> RegisterKeller
 initRegstack code =
-  ( (False, Pointer (-1), Nil, Nil, cGoal code, Nil, Nil, Nil,Pointer (-1), 0, 0, Nil),
+  ( (False, Pointer (-1), Nil, Nil, cGoal code, Nil, Nil, Nil, 0, 0, 0, Nil),
     (Stack [], Stack [], Stack [])
   )
 
