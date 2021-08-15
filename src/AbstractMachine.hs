@@ -293,7 +293,7 @@ push
     )
 -- Push CHP
 push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code =
-  ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e, 0, tt, 0, sc, Nil),
+  ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e,Pointer (-1), tt, 0, sc, Nil),
     ( stackReplaceAtLocationMLStack
         (t +<- 6)
         (StackAddress 9998)
@@ -409,7 +409,7 @@ backtrack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), register@(stack, us, 
   | b =
     backtrackAfterSchleife
       ( backtrackISchleife
-          (safePointerFromStackAtLocation (c +<- 4) stack +<- 1)
+          (safePointerFromStackAtLocation (c +<- 4) stack) --Hier nicht +<-1 nachdem der Pointer geholt wurde, da unsere Stacks bei 0 anfangen zu zählen, nicht bei 1
           (backtrackAfterWhile (backtrackWhile all))
       )
       code
@@ -439,7 +439,7 @@ backtrackWhile all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, u
 backtrackAfterWhile :: RegisterKeller -> RegisterKeller
 backtrackAfterWhile
   ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) =
-    ((b, safePointerFromStackAtLocation (c +<- 5) stack, c, r, p, c +<- 6, safePointerFromStackAtLocation (c +<- 5) stack +<- 1, Pointer 0, tt, 0, sc, Nil), stacks)
+    ((b, safePointerFromStackAtLocation (c +<- 5) stack, c, r, p, c +<- 6, safePointerFromStackAtLocation (c +<- 5) stack +<- 1, Pointer (-1), tt, 0, sc, Nil), stacks)
 
 backtrackCNilRnotNil :: RegisterKeller -> Bool
 backtrackCNilRnotNil ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
@@ -555,13 +555,13 @@ sAddWhile
 isStackAtLocationEndEnv :: Pointer -> MLStack -> Bool
 isStackAtLocationEndEnv _ (Stack []) = False
 isStackAtLocationEndEnv i stack = isStackElemEndEnv $ stackItemAtLocation i stack
-
+      
 sAddWhileIfStackAtIVarOfSymbol :: RegisterKeller -> (SAddAdd, SAddI) -> Argument -> SAddAdd
 sAddWhileIfStackAtIVarOfSymbol rs@(_, (stack, _, _)) (add, i) arg@(ATVar argSym _) =
   case stackItemAtLocation i stack of
-    (CodeArg (ATVar stackSym _)) ->
-      if stackSym == argSym then i else sAddWhile rs arg (add, i +<- 1)
-    _ -> sAddWhile rs arg (add, i +<- 1)
+      (CodeArg (ATVar stackSym _)) ->
+            if stackSym == argSym then i else sAddWhile rs arg (add, i +<- 1)
+      _ -> sAddWhile rs arg (add, i +<- 1)
 sAddWhileIfStackAtIVarOfSymbol _ _ _ = error "Unexpected call in sAddNewAddIfvar"
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
@@ -678,7 +678,7 @@ saveAcUpQ all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
       && getArity (stackItemAtLocation (deref stack up) stack) /= 0 =
     ( (b, t, c, r, p, deref stack (up +<- 1), e, ut +<- 2, tt, pc, sc, 1),
       ( stack,
-        us <> Stack [StackAddress ac, StackAddress (up +<- 1)],
+        stackReplaceAtLocationMLStack (ut+2) (StackAddress up) $ stackReplaceAtLocationMLStack (ut+1) (StackAddress ac) us,
         trail
       )
     )
@@ -734,7 +734,6 @@ saveT :: RegisterKeller -> RegisterKeller
 saveT all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = ((b, t, c, r, p, up, e, ut +<- 1, tt, pc, sc, ac), (stack, stackReplaceAtLocationMLStack (ut +<- 1) (CodeAddress t) us, trail))
 
 sameSymbol :: Argument -> RegisterKeller -> Bool
-sameSymbol arg@(ATVar var Nil) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = False
 sameSymbol arg@(ATVar var add) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = stackItemAtLocation (deref stack (sAdd all arg ATUnify)) stack == CodeArg (ATVar var Nil)
 sameSymbol _ _ = error "Vergleich mit dieser Funktion war für Variablen gedacht"
 
@@ -914,7 +913,9 @@ auswerten
     let cmd = stackItemAtLocation (pToInt p) code
      in trace
           ("I worked with:\n" ++ show cmd ++ "\nMy registers are:\n" ++ show rs)
-          (auswerten (executeCommand cmd rs code) code)
+          (if Prompt prompt == cmd
+          then rs 
+          else auswerten (executeCommand cmd rs code) code)
 
 -- Execute command on register stack
 executeCommand :: Command -> (RegisterKeller -> (Zielcode -> RegisterKeller))
@@ -928,7 +929,7 @@ executeCommand cmd rs code = case cmd of
 
 initRegstack :: Zielcode -> RegisterKeller
 initRegstack code =
-  ( (False, Pointer (-1), Nil, Nil, cGoal code, Nil, Nil, Nil, Pointer (-1), 0, 0, Nil),
+  ( (False, Pointer (-1), Nil, Nil, cGoal code, Nil, Nil, Pointer (-1), Pointer (-1), 0, 0, Nil),
     (Stack [], Stack [], Stack [])
   )
 
@@ -945,10 +946,14 @@ sAdd2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, tra
 sAdd2 _ _ _ = error "Nur ATPush/ATUnify Argumente als drittes Element"
 
 sAddWhile2 :: RegisterKeller -> Argument -> Pointer -> Pointer  -> Pointer
-sAddWhile2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg i add =
-  if not $ isATEndEnv (stackItemAtLocation i stack) && add == Nil
-    then sAddWhile2 rs arg (i+<-1) $ sAddIfThenElse rs arg i add
-    else add
+sAddWhile2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg i add
+   |isSymbolSameAsInArg arg (stackItemAtLocation i stack) = i
+   |not $ isATEndEnv (stackItemAtLocation i stack) && add == Nil =  sAddWhile2 rs arg (i+<-1) $ sAddIfThenElse rs arg i add
+   |otherwise =  add
+
+isSymbolSameAsInArg:: Argument -> StackElement -> Bool
+isSymbolSameAsInArg (ATVar symb add) (CodeArg (ATVar symb2 add2)) = symb == symb
+isSymbolSameAsInArg _ _ = False
 
 isATEndEnv :: StackElement  -> Bool
 isATEndEnv (CodeArg (ATEndEnv _)) = True
