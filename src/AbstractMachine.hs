@@ -294,19 +294,21 @@ push
 -- Push CHP
 push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code =
   ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e, 0, tt, 0, sc, Nil),
-    ( stackPush
-        (StackAddress 9999)
-        ( stackPush
-            (StackAddress 9999)
+    ( stackReplaceAtLocationMLStack
+        (t +<- 6)
+        (StackAddress 9998)
+        ( stackReplaceAtLocationMLStack
+            (t +<- 5)
+            (TrailAddress tt)
             ( stackReplaceAtLocationMLStack
-                (t +<- 5)
-                (TrailAddress tt)
+                (t +<- 4)
+                (StackAddress e)
                 ( stackReplaceAtLocationMLStack
-                    (t +<- 4)
-                    (StackAddress e)
+                    (t +<- 3)
+                    (StackAddress 9999)
                     ( stackReplaceAtLocationMLStack
                         (t +<- 2)
-                        (StackAddress c)
+                        (CodeAddress c)
                         ( stackReplaceAtLocationMLStack
                             (t +<- 1)
                             (StackAddress $ cFirst code)
@@ -717,7 +719,7 @@ saveAcUpQ all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
   | up <= safePointerFromStackAtLocation (c +<- 5) stack
       && deref stack up /= up
       && getArity (stackItemAtLocation (deref stack up) stack) /= 0 =
-    ( (b, t, c, r, p, deref stack (up +<- 1), e, ut +<- 2, tt, pc, sc, 0),
+    ( (b, t, c, r, p, deref stack (up +<- 1), e, ut +<- 2, tt, pc, sc, 1),
       ( stack,
         us <> Stack [StackAddress ac, StackAddress (up +<- 1)],
         trail
@@ -968,7 +970,7 @@ executeCommand cmd rs code = case cmd of
 
 initRegstack :: Zielcode -> RegisterKeller
 initRegstack code =
-  ( (False, Pointer (-1), Nil, Nil, cGoal code, Nil, Nil, Nil, 0, 0, 0, Nil),
+  ( (False, Pointer (-1), Nil, Nil, cGoal code, Nil, Nil, Nil, Pointer (-1), 0, 0, Nil),
     (Stack [], Stack [], Stack [])
   )
 
