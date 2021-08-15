@@ -797,14 +797,8 @@ checkDereferencedUp :: Argument -> Argument -> RegisterKeller -> RegisterKeller
 checkDereferencedUp arg@(ATStr symb arity) arg2@(ATStr symb2 arity2) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) =
   if symb /= symb2 || arity /= arity2
     then ((True, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks)
-    else up1 $ restoreAcUpQ $ addACIfThenElse arity $ saveAcUpQ all
+    else up1 $ restoreAcUpQ $ addAC (arity - 1) $ saveAcUpQ all
 checkDereferencedUp _ _ _ = error "This function checks if the unification of two cells was unsuccesful"
-
-addACIfThenElse :: Int -> RegisterKeller -> RegisterKeller
-addACIfThenElse arity all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) =
-  if arity >= 1
-    then addAC arity all
-    else addAC (-1) all
 
 --to get the Arity of the to be unified Argument in push mode
 getArity :: StackElement -> Int
