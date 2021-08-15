@@ -742,7 +742,7 @@ restoreT all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us,
 
 -- Speichert T in us
 saveT :: RegisterKeller -> RegisterKeller
-saveT all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = ((b, t, c, r, p, up, e, ut + 1, tt, pc, sc, ac), (stack, stackReplaceAtLocationMLStack (ut + 1) (CodeAddress t) us, trail))
+saveT all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = ((b, t, c, r, p, up, e, ut + 1, tt, pc, sc, ac), (stack, stackReplaceAtLocationMLStack (ut + 1) (StackAddress t) us, trail))
 
 notSameSymbol :: Argument -> Argument -> Bool
 notSameSymbol arg@(ATVar var add) arg2@(ATVar var2 Nil) = var /= var2
@@ -820,7 +820,7 @@ getArity _ = error "What"
 
 --TODO unify Prozedur, setzt b im Endeffekt
 unifyProzedur :: Pointer -> Up -> RegisterKeller -> RegisterKeller
-unifyProzedur add1 add2 all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = unifyProzedur' True (stackPush (CodeAddress add2) $ stackPush (CodeAddress add1) stack) all
+unifyProzedur add1 add2 all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = unifyProzedur' True (stackPush (StackAddress add2) $ stackPush (StackAddress add1) stack) all
 
 unifyProzedur' :: Bool -> MLStack -> RegisterKeller -> RegisterKeller
 unifyProzedur' weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
