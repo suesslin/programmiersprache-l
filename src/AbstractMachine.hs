@@ -654,7 +654,7 @@ cNext :: Zielcode -> Pointer -> Pointer
 cNext zielcode Nil = Nil
 cNext zielcode@(Stack code) p@(Pointer address) =
   case stackLocationFirstItemOfKind' "pushML ATBeg" (transformN (drop (address + 1) code) 12) of
-    (Just relativeItemLocation) -> if ((p + 1) + Pointer relativeItemLocation) == cGoal zielcode then Nil else (p + 1) + Pointer relativeItemLocation
+    (Just relativeItemLocation) -> if (p + 1) + Pointer relativeItemLocation == cGoal zielcode then Nil else p + 1 + Pointer relativeItemLocation
     Nothing -> Nil
 
 cLast :: Zielcode -> Pointer
@@ -704,8 +704,8 @@ unify arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
 
 unifyPushModus :: Argument -> RegisterKeller -> RegisterKeller
 unifyPushModus arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = case arg of
-  ATVar var add -> ((b, t + 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t + 1) (CodeArg (ATVar var (sAdd all arg ATUnify))) stack, us, trail))
-  ATStr atom ar -> ((b, t + 1, c, r, p, up, e, ut, tt, (pc -1) + ar, sc, ac), (stackReplaceAtLocationMLStack (t + 1) (CodeArg arg) stack, us, trail))
+  ATVar var add -> ((b, t + 1, c, r, p, up, e, ut, tt, pc -1 + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t + 1) (CodeArg (ATVar var (sAdd all arg ATUnify))) stack, us, trail))
+  ATStr atom ar -> ((b, t + 1, c, r, p, up, e, ut, tt, pc -1 + ar, sc, ac), (stackReplaceAtLocationMLStack (t + 1) (CodeArg arg) stack, us, trail))
   _ -> error "Mitgegebenes Argument für PushModus muss Lineares Atom oder eine Variable sein"
 
 unifyNonPushModus :: Argument -> RegisterKeller -> RegisterKeller
@@ -717,8 +717,9 @@ unifyNonPushModus arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac)
 -- Hilfsfunktionen für den Fall, dass eine Variable unifiziert werden soll (unifyNonPushModus case arg = ATVar var add)
 unifyVarNonPIfThenElse :: Argument -> RegisterKeller -> RegisterKeller
 unifyVarNonPIfThenElse arg@(ATVar var add) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  if sameSymbol arg all
-    then addToStackAndTrailVar arg all
+  let (CodeArg arg2@(ATVar symb2 add)) = trace ("sAdd: "++ show (sAdd all arg ATUnify) ++ "\nderef: " ++ show (deref stack (sAdd all arg ATUnify))) stackItemAtLocation (deref stack (sAdd all arg ATUnify)) stack
+  in if notSameSymbol arg arg2
+    then addToStackAndTrailVar arg arg2 all
     else restoreT $ unifyProzedur (deref stack (sAdd all arg ATUnify)) up $ saveT all
 unifyVarNonPIfThenElse arg _ = error "Argument has to be ATVar"
 
@@ -743,21 +744,22 @@ restoreT all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us,
 saveT :: RegisterKeller -> RegisterKeller
 saveT all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = ((b, t, c, r, p, up, e, ut + 1, tt, pc, sc, ac), (stack, stackReplaceAtLocationMLStack (ut + 1) (CodeAddress t) us, trail))
 
-sameSymbol :: Argument -> RegisterKeller -> Bool
-sameSymbol arg@(ATVar var add) all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = stackItemAtLocation (deref stack (sAdd all arg ATUnify)) stack == CodeArg (ATVar var Nil)
-sameSymbol _ _ = error "Vergleich mit dieser Funktion war für Variablen gedacht"
+notSameSymbol :: Argument -> Argument -> Bool
+notSameSymbol arg@(ATVar var add) arg2@(ATVar var2 Nil) = var /= var2
+notSameSymbol _ _ = False
 
-addToStackAndTrailVar :: Argument -> RegisterKeller -> RegisterKeller
+addToStackAndTrailVar :: Argument -> Argument -> RegisterKeller -> RegisterKeller
 addToStackAndTrailVar
   arg@(ATVar var add)
+  arg2@(ATVar var2 add2)
   all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
     ( (b, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
-      ( stackReplaceAtLocationMLStack (deref stack (sAdd all arg ATUnify)) (CodeArg (ATVar var up)) stack,
+      ( trace (show (deref stack (sAdd all arg ATUnify))) stackReplaceAtLocationMLStack (deref stack (sAdd all arg ATUnify)) (CodeArg (ATVar var2 up)) stack,
         us,
         stackReplaceAtLocationMLStack (tt + 1) (StackAddress (sAdd all arg ATUnify)) trail
       )
     )
-addToStackAndTrailVar _ _ = error "War für Variablen gedacht"
+addToStackAndTrailVar _ _ _ = error "War für Variablen gedacht"
 
 --Erhöht up um 1
 up1 :: RegisterKeller -> RegisterKeller
@@ -838,18 +840,15 @@ getD (CodeArg _) _ = Nil
 
 check2Unify :: Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check2Unify d1 d2 weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  if d1 /= d2
+  if trace (show d1 ++ " " ++ show d2)d1 /= d2
     then
-      let arg@(CodeArg (ATVar var symb)) = stackItemAtLocation d1 stack
+      let arg@(CodeArg (ATVar var pointer)) = stackItemAtLocation d1 stack
        in check2UnifyIf arg d1 d2 weiter hilfsstack all
     else unifyProzedur' weiter hilfsstack all
 
 check2UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check2UnifyIf arg@(CodeArg (ATVar var Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-    unifyProzedur'
-    weiter
-    (stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var d2)) hilfsstack)
-    ( (b, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
+    ( (not weiter, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
       ( stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var d2)) stack,
         us,
         stackReplaceAtLocationMLStack (tt + 1) (StackAddress d1) trail
@@ -862,10 +861,7 @@ check2UnifyIf _ _ _ _ _ _ = error "Nur mit Argumenten des Typs ATVar soll diese 
 
 check3UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check3UnifyIf arg2@(CodeArg (ATVar var2 Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-    unifyProzedur'
-    weiter
-    (stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var2 d1)) hilfsstack)
-    ( (b, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
+    ( (not weiter, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
       ( stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var2 d1)) stack,
         us,
         stackReplaceAtLocationMLStack (tt + 1) (StackAddress d2) trail
