@@ -293,7 +293,7 @@ push
     )
 -- Push CHP
 push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code =
-  ( (b, t + 6, t + 1, t + 2, p + 1, t + 7, e, Pointer (-1), tt, 0, sc, Nil),
+  ( (b, t + 6, t + 1, t + 2, p + 1, t + 7, e,Pointer (-1), tt, 0, sc, Nil),
     ( stackReplaceAtLocationMLStack
         (t + 6)
         (StackAddress 9998)
@@ -401,19 +401,25 @@ returnLPos ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
 
 returnLNeg :: RegisterKeller -> RegisterKeller
 returnLNeg ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  ((False, t, c, r, p, up, e, up, tt, pc, sc, ac), (stackWriteToLocation (r -<- 1) (CodeAddress Nil) stack, us, trail))
+  ((False, t, c, r, p, up, e, up, tt, pc, sc, ac), (stackWriteToLocation (r - 1) (CodeAddress Nil) stack, us, trail))
 
 -- Backtrack? für GroundL
 backtrack :: RegisterKeller -> Zielcode -> RegisterKeller
 backtrack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), register@(stack, us, trail)) code
   | b =
-    backtrackAfterSchleife
-      ( backtrackISchleife
+    backtrackAfterI
+      ( backtrackI
           (safePointerFromStackAtLocation (c + 4) stack) --Hier nicht +1 nachdem der Pointer geholt wurde, da unsere Stacks bei 0 anfangen zu zählen, nicht bei 1
           (backtrackAfterWhile (backtrackWhile all))
       )
       code
   | otherwise = ((b, t, c, r, p + 1, up, e, ut, tt, pc, sc, ac), register)
+
+backtrackIsStackC4Neg :: Pointer -> Bool
+backtrackIsStackC4Neg i
+  | i < 0 = True
+  | otherwise = False
+
 
 backtrackWhile :: RegisterKeller -> RegisterKeller
 backtrackWhile all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail))
@@ -446,20 +452,21 @@ backtrackCNilRnotNil ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, tr
   safePointerFromStackAtLocation c stack == Nil
     && safePointerFromStackAtLocation r stack /= Nil
 
-backtrackISchleife :: Pointer -> RegisterKeller -> RegisterKeller
-backtrackISchleife i all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
-  | i <= tt = backtrackISchleife (i + 1) (backtrackISchleifeIf i all)
+backtrackI :: Pointer -> RegisterKeller -> RegisterKeller
+backtrackI i all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
+  | i < 0 = all
+  | i <= tt = backtrackI(i + 1) (backtrackIIf i all)
   | otherwise = all
 
-backtrackISchleifeIf :: Pointer -> RegisterKeller -> RegisterKeller
-backtrackISchleifeIf i all@(register@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
+backtrackIIf :: Pointer -> RegisterKeller -> RegisterKeller
+backtrackIIf i all@(register@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   | safePointerFromStackAtLocation i trail <= t =
     let (CodeArg (ATVar symbol add)) = stackItemAtLocation (safePointerFromStackAtLocation i trail) stack
      in (register, (stackReplaceAtLocationMLStack (safePointerFromStackAtLocation i trail) (CodeArg (ATVar symbol Nil)) stack, us, trail))
   | otherwise = all
 
-backtrackAfterSchleife :: RegisterKeller -> Zielcode -> RegisterKeller
-backtrackAfterSchleife
+backtrackAfterI :: RegisterKeller -> Zielcode -> RegisterKeller
+backtrackAfterI
   all@(register@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), stacks@(stack, us, trail)) =
     backtrackIfThenElse ((b, t, c, r, p, up, e, ut, safePointerFromStackAtLocation (c + 4) stack, pc, sc, ac), stacks)
 
@@ -533,7 +540,7 @@ sAddHandleMode
   rs@((_, _, c, _, _, _, e, _, _, _, _, _), (stack, _, _))
   symbArg
   mode
-  (add, i) = trace "a sad(d) handler" $
+  (add, i) =
     case mode of
       ATUnify -> sAddWhile rs symbArg (Nil, e)
       ATPush ->
@@ -543,7 +550,7 @@ sAddHandleMode
       _ -> error "Unexpected mode in sAdd"
 
 sAddWhile :: RegisterKeller -> Argument -> (SAddAdd, SAddI) -> SAddAdd
-sAddWhile (rs, (Stack [], us, trail)) _ _ = trace "sAddWhile returns Nil" Nil
+sAddWhile (rs, (Stack [], us, trail)) _ _ = Nil
 sAddWhile
   rs@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   symArg
@@ -559,9 +566,9 @@ isStackAtLocationEndEnv i stack = isStackElemEndEnv $ stackItemAtLocation i stac
 sAddWhileIfStackAtIVarOfSymbol :: RegisterKeller -> (SAddAdd, SAddI) -> Argument -> SAddAdd
 sAddWhileIfStackAtIVarOfSymbol rs@(_, (stack, _, _)) (add, i) arg@(ATVar argSym _) =
   case stackItemAtLocation i stack of
-    (CodeArg (ATVar stackSym _)) ->
-      if stackSym == argSym then i else sAddWhile rs arg (add, i + 1)
-    _ -> sAddWhile rs arg (add, i + 1)
+      (CodeArg (ATVar stackSym _)) ->
+            if stackSym == argSym then i else sAddWhile rs arg (add, i + 1)
+      _ -> sAddWhile rs arg (add, i + 1)
 sAddWhileIfStackAtIVarOfSymbol _ _ _ = error "Unexpected call in sAddNewAddIfvar"
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
@@ -615,7 +622,9 @@ displayTerm add stack akk = case stackItemAtLocation (deref stack add) stack of
       then akk <> show sym
       else error "Unexpected ATVar at displayTerm"
   (CodeArg (ATStr sym _)) ->
-    displayTerm (deref stack add + 1) stack (akk <> show sym) <> ")"
+     if add + 1 < Pointer (stackSizeOf stack)
+      then displayTerm (deref stack add +1) stack (concat[akk,show sym,"("]) <> ")"
+      else akk
   _ -> "Unexpected display Term call"
 
 isStackElemEndEnv :: StackElement -> Bool
@@ -677,9 +686,9 @@ saveAcUpQ all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
   | up <= safePointerFromStackAtLocation (c + 5) stack
       && deref stack up /= up
       && getArity (stackItemAtLocation (deref stack up) stack) /= 0 =
-    ( (b, t, c, r, p, deref stack (up + 1), e, ut + 2, tt, pc, sc, 1),
+    ( (b, t, c, r, p, deref stack up, e, ut + 2, tt, pc, sc, 1),
       ( stack,
-        stackReplaceAtLocationMLStack (ut + 2) (StackAddress up) $ stackReplaceAtLocationMLStack (ut + 1) (StackAddress ac) us,
+        stackReplaceAtLocationMLStack (ut + 2) (StackAddress up) $ stackReplaceAtLocationMLStack (ut+1) (StackAddress ac) us,
         trail
       )
     )
@@ -690,13 +699,13 @@ saveAcUpQ all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
 ---------------------------------------------------------------------}
 unify :: Argument -> RegisterKeller -> RegisterKeller
 unify arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
-  | pc >= 1 = p1 $ trace "Entering unifyPushModus\n" unifyPushModus arg all
-  | otherwise = p1 $ trace "Entering unifyNonPushModus\n" unifyNonPushModus arg all
+  | pc >= 1 = p1 $ unifyPushModus arg all
+  | otherwise = p1 $ unifyNonPushModus arg all
 
 unifyPushModus :: Argument -> RegisterKeller -> RegisterKeller
 unifyPushModus arg all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = case arg of
-  ATVar var add -> trace ("Should be pushing: " ++ show arg) ((b, t + 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t + 1) (CodeArg (ATVar var (sAdd all arg ATUnify))) stack, us, trail))
-  ATStr atom ar -> trace ("Should be pushing: " ++ show arg) ((b, t + 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t + 1) (CodeArg arg) stack, us, trail))
+  ATVar var add -> ((b, t + 1, c, r, p, up, e, ut, tt, (pc -1) + getArity (CodeArg arg), sc, ac), (stackReplaceAtLocationMLStack (t + 1) (CodeArg (ATVar var (sAdd all arg ATUnify))) stack, us, trail))
+  ATStr atom ar -> ((b, t + 1, c, r, p, up, e, ut, tt, (pc -1) + ar, sc, ac), (stackReplaceAtLocationMLStack (t + 1) (CodeArg arg) stack, us, trail))
   _ -> error "Mitgegebenes Argument für PushModus muss Lineares Atom oder eine Variable sein"
 
 unifyNonPushModus :: Argument -> RegisterKeller -> RegisterKeller
@@ -809,12 +818,12 @@ getArity _ = error "What"
 
 --TODO unify Prozedur, setzt b im Endeffekt
 unifyProzedur :: Pointer -> Up -> RegisterKeller -> RegisterKeller
-unifyProzedur add1 add2 all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = trace "Entering unifyProzedur'\n" (unifyProzedur' True (stackPush (CodeAddress add2) $ stackPush (CodeAddress add1) stack) all)
+unifyProzedur add1 add2 all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = unifyProzedur' True (stackPush (CodeAddress add2) $ stackPush (CodeAddress add1) stack) all
 
 unifyProzedur' :: Bool -> MLStack -> RegisterKeller -> RegisterKeller
 unifyProzedur' weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   if weiter && not (stackEmpty hilfsstack)
-    then trace "Entering check2Unify\n" check2Unify (getD (stackPeekTop hilfsstack) hilfsstack) (getD (stackPeekTop (stackPop hilfsstack)) hilfsstack) weiter (stackPop $ stackPop hilfsstack) all
+    then check2Unify (getD (stackPeekTop hilfsstack) hilfsstack) (getD (stackPeekTop (stackPop hilfsstack)) hilfsstack) weiter (stackPop $ stackPop hilfsstack) all
     else ((not weiter, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
 
 --Holt die dereferenierte Adresse des StackElementes
@@ -832,66 +841,60 @@ check2Unify d1 d2 weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, t
   if d1 /= d2
     then
       let arg@(CodeArg (ATVar var symb)) = stackItemAtLocation d1 stack
-       in trace "Entering check2UnifyIf\n" check2UnifyIf arg d1 d2 weiter hilfsstack all
-    else trace "Entering unifyProzedur', after check2Unify\n" unifyProzedur' weiter hilfsstack all
+       in check2UnifyIf arg d1 d2 weiter hilfsstack all
+    else unifyProzedur' weiter hilfsstack all
 
 check2UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check2UnifyIf arg@(CodeArg (ATVar var Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  trace
-    "Entering unifyProzedur', after check2UnifyIf\n"
     unifyProzedur'
     weiter
     (stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var d2)) hilfsstack)
     ( (b, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
       ( stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var d2)) stack,
         us,
-        stackReplaceAtLocationMLStack (tt + 1) (CodeAddress d1) trail
+        stackReplaceAtLocationMLStack (tt + 1) (StackAddress d1) trail
       )
     )
 check2UnifyIf (CodeArg (ATVar _ add)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   let arg2@(CodeArg (ATVar var2 add2)) = stackItemAtLocation d2 stack
-   in trace "Entering check3UnifyIf\n" check3UnifyIf arg2 d1 d2 weiter hilfsstack all
+   in check3UnifyIf arg2 d1 d2 weiter hilfsstack all
 check2UnifyIf _ _ _ _ _ _ = error "Nur mit Argumenten des Typs ATVar soll diese Funktion aufgerufen werden (Check2)"
 
 check3UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check3UnifyIf arg2@(CodeArg (ATVar var2 Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  trace
-    "Entering unifyProzedur', after check3UnifyIf\n"
     unifyProzedur'
     weiter
     (stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var2 d1)) hilfsstack)
     ( (b, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
       ( stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var2 d1)) stack,
         us,
-        stackReplaceAtLocationMLStack (tt + 1) (CodeAddress d2) trail
+        stackReplaceAtLocationMLStack (tt + 1) (StackAddress d2) trail
       )
     )
 check3UnifyIf _ d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   let (arg@(CodeArg (ATStr symb arity)), arg2@(CodeArg (ATStr symb2 arity2))) = (stackItemAtLocation d1 hilfsstack, stackItemAtLocation d2 hilfsstack)
-   in trace "Entering checkForUnify\n" checkForUnify (arg, arg2) d1 d2 weiter hilfsstack all
+   in checkForUnify (arg, arg2) d1 d2 weiter hilfsstack all
 
 checkForUnify :: (StackElement, StackElement) -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 checkForUnify (arg@(CodeArg (ATStr symb arity)), arg2@(CodeArg (ATStr symb2 arity2))) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   if symb /= symb2 || arity /= arity2
-    then trace "Entering unifyProzedur', after checkForUnify\n" unifyProzedur' False hilfsstack all
-    else trace "Entering pushD1D2\n" pushD1D2 d1 d2 1 arity weiter hilfsstack all
+    then unifyProzedur' False hilfsstack all
+    else pushD1D2 d1 d2 1 arity weiter hilfsstack all
 checkForUnify _ _ _ _ _ _ =
   error "checkForUnify is suppossed to be called with two structure cells"
 
 pushD1D2 :: Pointer -> Pointer -> Int -> Arity -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 pushD1D2 d1 d2 i arity weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
   | i <= arity =
-    trace
-      ("Entering pushD1D2\ni: " ++ show i ++ "\narity: " ++ show arity ++ "\n")
       pushD1D2
       d1
       d2
       (i + 1)
       arity
       weiter
-      (stackPush (CodeAddress (d2 +<- i)) $ stackPush (CodeAddress (d1 +<- i)) hilfsstack)
+      (stackPush (StackAddress (d2 +<- i)) $ stackPush (StackAddress (d1 +<- i)) hilfsstack)
       all
-  | otherwise = trace "Entering unifyProzedur', after pushD1D2\n" unifyProzedur' weiter hilfsstack all
+  | otherwise = unifyProzedur' weiter hilfsstack all
 
 {--------------------------------------------------------------------
               ML Auswertung
@@ -900,7 +903,6 @@ pushD1D2 d1 d2 i arity weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, 
 --Die Logik dahinter: Man lässt die Befehle durchlaufen und müsste dann bei einem korrekten Programm am Ende bei Prompt gelandet sein.
 --Dann könnte man in der Main Methode prompt aufrufen und abhängig vom Resultat noch einmal auswertung aufrufen, aber eben mit den in Prompt angepassten werten.
 --Hoffe das geht so,
--- TODO: Remove Trace as soon as everything works
 auswerten :: RegisterKeller -> Zielcode -> RegisterKeller
 auswerten
   rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
@@ -938,13 +940,13 @@ sAdd2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, tra
 sAdd2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg ATPush =
   if c == Nil
   then Nil
-  else sAddWhile2 rs arg (safePointerFromStackAtLocation (c+3) stack) Nil
+  else sAddWhile2 rs arg (safePointerFromStackAtLocation (c+<-3) stack) Nil
 sAdd2 _ _ _ = error "Nur ATPush/ATUnify Argumente als drittes Element"
 
 sAddWhile2 :: RegisterKeller -> Argument -> Pointer -> Pointer  -> Pointer
 sAddWhile2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg i add
    |isSymbolSameAsInArg arg (stackItemAtLocation i stack) = i
-   |not $ isATEndEnv (stackItemAtLocation i stack) && add == Nil =  sAddWhile2 rs arg (i+1) $ sAddIfThenElse rs arg i add
+   |not $ isATEndEnv (stackItemAtLocation i stack) && add == Nil =  sAddWhile2 rs arg (i+<-1) $ sAddIfThenElse rs arg i add
    |otherwise =  add
 
 isSymbolSameAsInArg:: Argument -> StackElement -> Bool
