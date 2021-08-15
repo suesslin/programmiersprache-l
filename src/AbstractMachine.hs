@@ -521,23 +521,25 @@ linearizeV (LTNVar atom : rest) akk = linearizeV rest (linearizeNV atom akk)
 
 sAdd :: RegisterKeller -> Argument -> Argument -> SAddAdd
 sAdd rs symbArg mode =
-  sAddWhile rs symbArg (sAddHandleMode rs mode (Nil, Pointer 0))
+  sAddHandleMode rs symbArg mode (Nil, Pointer 0)
 
 type SAddI = Pointer
 
 type SAddAdd = Pointer
 
-sAddHandleMode :: RegisterKeller -> Argument -> (SAddAdd, SAddI) -> (SAddAdd, SAddI)
+sAddHandleMode ::
+  RegisterKeller -> Argument -> Argument -> (SAddAdd, SAddI) -> SAddAdd
 sAddHandleMode
-  ((_, _, c, _, _, _, e, _, _, _, _, _), (stack, _, _))
+  rs@((_, _, c, _, _, _, e, _, _, _, _, _), (stack, _, _))
+  symbArg
   mode
   (add, i) = trace "a sad(d) handler" $
     case mode of
-      ATUnify -> (Nil, e)
+      ATUnify -> sAddWhile rs symbArg (Nil, e)
       ATPush ->
         if isPNil c
-          then (Nil, i)
-          else (Nil, safePointerFromStackAtLocation (c +<- 3) stack)
+          then Nil
+          else sAddWhile rs symbArg (Nil, safePointerFromStackAtLocation (c +<- 3) stack)
       _ -> error "Unexpected mode in sAdd"
 
 sAddWhile :: RegisterKeller -> Argument -> (SAddAdd, SAddI) -> SAddAdd
