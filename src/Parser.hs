@@ -154,7 +154,7 @@ parse :: [Token] -> Tree
 parse toks =
   let (tree, toks') = programm toks
    in case lookAhead toks' of
-        Ende ->  newTree tree
+        Ende -> newTree tree
         _ ->
           error $
             "Expected to finish with Ende but it didn't.\n"

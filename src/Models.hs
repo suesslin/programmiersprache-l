@@ -6,8 +6,8 @@ data Pointer = Pointer Int | Nil deriving (Show, Eq)
 
 instance Num Pointer where
   (Pointer x) + (Pointer y) = Pointer (x + y)
-  x + Nil = x-1 -- -1 weil wir Anfangen bei 0 zu zählen. Bsp. tt = nil, also kein Element in trail vorhanden. tt+1 = Pointer 0, erstes Element in Trail vorhanden. 
-  Nil + y = y-1
+  x + Nil = x -1 -- -1 weil wir Anfangen bei 0 zu zählen. Bsp. tt = nil, also kein Element in trail vorhanden. tt+1 = Pointer 0, erstes Element in Trail vorhanden.
+  Nil + y = y -1
   (Pointer x) - (Pointer y) = Pointer (x - y)
   Nil - Nil = Nil
   (Pointer _) - Nil = Nil
@@ -15,7 +15,7 @@ instance Num Pointer where
   Nil * Nil = Nil
   (Pointer _) * Nil = Nil
   Nil * (Pointer _) = Nil
-  (Pointer x) * (Pointer y) = Pointer (x*y)
+  (Pointer x) * (Pointer y) = Pointer (x * y)
   fromInteger x = Pointer (fromInteger x)
   abs Nil = Nil
   abs (Pointer x) = Pointer (abs x)
@@ -31,9 +31,9 @@ instance Ord Pointer where
 -- TODO
 
 instance Enum Pointer where
-  fromEnum Nil         = undefined
+  fromEnum Nil = undefined
   fromEnum (Pointer x) = x
-  toEnum x    = Pointer x
+  toEnum x = Pointer x
 
 instance Real Pointer where
   toRational Nil = undefined
@@ -42,17 +42,17 @@ instance Real Pointer where
 instance Integral Pointer where
   toInteger (Pointer x) = toInteger x
   toInteger Nil = error "Tried converting Pointer value Nil to an Integer-type."
-  quotRem Nil         Nil         = undefined
-  quotRem (Pointer x) Nil         = undefined
-  quotRem Nil         (Pointer y) = undefined 
-  quotRem (Pointer x) (Pointer y) = let (z,v) = quotRem x y in (Pointer z, Pointer v)
+  quotRem Nil Nil = undefined
+  quotRem (Pointer x) Nil = undefined
+  quotRem Nil (Pointer y) = undefined
+  quotRem (Pointer x) (Pointer y) = let (z, v) = quotRem x y in (Pointer z, Pointer v)
 
 {---------------------------------------------------------------------
    Functions for Pointers
  ---------------------------------------------------------------------}
 
 addPi :: Pointer -> Int -> Pointer
-addPi Nil y = Pointer (y-1)
+addPi Nil y = Pointer (y -1)
 addPi (Pointer x) y = Pointer $ x + y
 
 subtractPi :: Pointer -> Int -> Pointer

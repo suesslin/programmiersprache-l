@@ -6,7 +6,7 @@ import Models (Token (..))
 type Akkumulator = [Token]
 
 tokenize :: String -> [Token]
-tokenize str = tokenize' str [] 
+tokenize str = tokenize' str []
 
 tokenize' :: String -> Akkumulator -> [Token]
 tokenize' [] akk = akk ++ [Ende]
