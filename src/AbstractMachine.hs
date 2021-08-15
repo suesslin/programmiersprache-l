@@ -293,7 +293,7 @@ push
     )
 -- Push CHP
 push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code =
-  ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e,Pointer (-1), tt, 0, sc, Nil),
+  ( (b, t +<- 6, t +<- 1, t +<- 2, p +<- 1, t +<- 7, e, Pointer (-1), tt, 0, sc, Nil),
     ( stackReplaceAtLocationMLStack
         (t +<- 6)
         (StackAddress 9998)
@@ -555,13 +555,13 @@ sAddWhile
 isStackAtLocationEndEnv :: Pointer -> MLStack -> Bool
 isStackAtLocationEndEnv _ (Stack []) = False
 isStackAtLocationEndEnv i stack = isStackElemEndEnv $ stackItemAtLocation i stack
-      
+
 sAddWhileIfStackAtIVarOfSymbol :: RegisterKeller -> (SAddAdd, SAddI) -> Argument -> SAddAdd
 sAddWhileIfStackAtIVarOfSymbol rs@(_, (stack, _, _)) (add, i) arg@(ATVar argSym _) =
   case stackItemAtLocation i stack of
-      (CodeArg (ATVar stackSym _)) ->
-            if stackSym == argSym then i else sAddWhile rs arg (add, i +<- 1)
-      _ -> sAddWhile rs arg (add, i +<- 1)
+    (CodeArg (ATVar stackSym _)) ->
+      if stackSym == argSym then i else sAddWhile rs arg (add, i +<- 1)
+    _ -> sAddWhile rs arg (add, i +<- 1)
 sAddWhileIfStackAtIVarOfSymbol _ _ _ = error "Unexpected call in sAddNewAddIfvar"
 
 -- Dereferenzierungsfunktion; an welchen Term ist Var gebunden
@@ -594,10 +594,29 @@ arityHelper _ = Nothing
 -- Displayfunktion für Prompt; untested
 
 display :: MLStack -> String
-display stack@(Stack content) =
-  -- Erstelle einen Substack bis zum Ende des Env
-  let stackpart = Stack (takeWhile (not . isStackElemEndEnv) content)
-   in displayHelper stackpart stack 1 "" -- Initialisierung des Stacks mit relativer Adresse 1 und leerem String
+display stack = displayWhile stack (Pointer 0) ""
+
+displayWhile :: MLStack -> Pointer -> String -> String
+displayWhile stack i akk
+  | not $ isStackElemEndEnv (stackItemAtLocation i stack) =
+    case stackItemAtLocation i stack of
+      (CodeArg (ATVar sym add)) ->
+        displayWhile
+          stack
+          (i + 1)
+          (displayTerm (deref stack i) stack akk <> " / " <> show sym <> "\n")
+      _ -> error "Display while failed because it wasn't an ATVar."
+  | otherwise = akk
+
+displayTerm :: Pointer -> MLStack -> String -> String
+displayTerm add stack akk = case stackItemAtLocation (deref stack add) stack of
+  (CodeArg (ATVar sym p)) ->
+    if isPNil p
+      then akk <> show sym
+      else error "Unexpected ATVar at displayTerm"
+  (CodeArg (ATStr sym _)) ->
+    displayTerm (deref stack add + 1) stack (akk <> show sym) <> ")"
+  _ -> "Unexpected display Term call"
 
 isStackElemEndEnv :: StackElement -> Bool
 isStackElemEndEnv (CodeArg (ATEndEnv _)) = True
@@ -608,24 +627,6 @@ isStackElemArg givenarg (CodeArg (arg))
   | arg == givenarg = True
   | otherwise = False
 isStackElemArg _ _ = False  -}
-
-displayHelper :: MLStack -> MLStack -> Pointer -> String -> String
-displayHelper stackpart orgstack addr str =
-  -- Überprüfung des Inhalts an Punkt addr
-  case stackItemAtLocation addr stackpart of
-    CodeArg (ATVar _ _) ->
-      -- neuer Teil des Strings
-      let str' = str ++ displayTerm orgstack (deref orgstack addr)
-       in displayHelper stackpart orgstack (addr + 1) str' -- rekursives Weiterschreiben
-    _ -> displayHelper stackpart orgstack (addr + 1) str
-
-displayTerm :: MLStack -> Pointer -> String
-displayTerm stack addr =
-  case stackItemAtLocation (deref stack addr) stack of
-    CodeArg (ATVar symb Nil) -> show symb
-    CodeArg (ATStr (A symb) arity) ->
-      show arity ++ "( " ++ displayTerm stack (deref stack addr + 1) ++ ") "
-    _ -> ""
 
 {--------------------------------------------------------------------
    Helpers; manually tested; changed for ML.
@@ -678,7 +679,7 @@ saveAcUpQ all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us
       && getArity (stackItemAtLocation (deref stack up) stack) /= 0 =
     ( (b, t, c, r, p, deref stack (up +<- 1), e, ut +<- 2, tt, pc, sc, 1),
       ( stack,
-        stackReplaceAtLocationMLStack (ut+2) (StackAddress up) $ stackReplaceAtLocationMLStack (ut+1) (StackAddress ac) us,
+        stackReplaceAtLocationMLStack (ut + 2) (StackAddress up) $ stackReplaceAtLocationMLStack (ut + 1) (StackAddress ac) us,
         trail
       )
     )
@@ -907,9 +908,10 @@ auswerten
     let cmd = stackItemAtLocation (pToInt p) code
      in trace
           ("I worked with:\n" ++ show cmd ++ "\nMy registers are:\n" ++ show rs)
-          (if Prompt prompt == cmd
-          then rs 
-          else auswerten (executeCommand cmd rs code) code)
+          ( if Prompt prompt == cmd
+              then rs
+              else auswerten (executeCommand cmd rs code) code
+          )
 
 -- Execute command on register stack
 executeCommand :: Command -> (RegisterKeller -> (Zielcode -> RegisterKeller))
