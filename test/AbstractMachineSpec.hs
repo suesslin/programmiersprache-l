@@ -606,6 +606,21 @@ testCallElseCase =
         (Stack [StackAddress (Pointer 0), CodeAddress Nil], initialUs, initialTrail))
       (call ((False, Pointer 2, Pointer 1, Pointer 1, Pointer 2, Pointer 2, Pointer 1, Pointer 1, Pointer 1, 1, 0, Pointer 0), (Stack [StackAddress (Pointer 0), CodeAddress (Pointer 5)], initialUs, initialTrail)) callCode)
 
+testReturnLNoIfCase =
+  TestCase $ 
+    assertEqual 
+      "Calling return without entering the if case should set p to stack(r+1) and e to stack(r+2)."
+      (((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 0, Nil, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil),
+      (Stack [CodeAddress (Pointer 3), StackAddress (Pointer 0), StackAddress (Pointer 1), StackAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 0)], initialUs, initialTrail)))
+      (returnL ATPos pushTestRegs)
+
+testReturnLIfCase =
+  TestCase $ 
+    assertEqual
+      "Calling return with entering the if case should set r to stack(r)+1."
+      (((False, Pointer (-1), Pointer 0, Pointer 1, Pointer 0, Nil, Pointer 1, Pointer 0, Pointer 0, 0, 0, Nil),(Stack [CodeAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 1)], initialUs, initialTrail)))
+      (returnL ATPos ((False, Pointer (-1), Pointer 0, Pointer 0, Pointer 3, Nil, Pointer 5, Pointer 0, Pointer 0, 0, 0, Nil),(Stack [CodeAddress Nil, StackAddress (Pointer 0), StackAddress (Pointer 1)], initialUs, initialTrail)))  
+
 {-     
 -- p. 131
 testReturnLNotNilCase =
