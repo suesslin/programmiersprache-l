@@ -311,7 +311,7 @@ push ATChp ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) code
                         (StackAddress 9999)
                         ( stackReplaceAtLocationMLStack
                             (t + 2)
-                            (CodeAddress c)
+                            (StackAddress c)
                             ( stackReplaceAtLocationMLStack
                                 (t + 1)
                                 (CodeAddress $ cFirst code)
@@ -841,22 +841,22 @@ check2Unify :: Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> Regist
 check2Unify d1 d2 weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   if d1 /= d2
     then
-      let arg@(CodeArg (ATVar var pointer)) = stackItemAtLocation d1 stack
+      let arg = stackItemAtLocation d1 stack
        in check2UnifyIf arg d1 d2 weiter hilfsstack all
     else unifyProzedur' weiter hilfsstack all
 
 check2UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
-check2UnifyIf arg@(CodeArg (ATVar var Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  ( (not weiter, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
-    ( stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var d2)) stack,
-      us,
-      stackReplaceAtLocationMLStack (tt + 1) (StackAddress d1) trail
+check2UnifyIf arg@(CodeArg (ATVar var Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = 
+    ( (not weiter, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
+      ( stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var d2)) stack,
+        us,
+        stackReplaceAtLocationMLStack (tt + 1) (StackAddress d1) trail
+      )
     )
-  )
-check2UnifyIf (CodeArg (ATVar _ add)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  let arg2@(CodeArg (ATVar var2 add2)) = stackItemAtLocation d2 stack
+check2UnifyIf _ d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
+  let arg2 = stackItemAtLocation d2 stack
    in check3UnifyIf arg2 d1 d2 weiter hilfsstack all
-check2UnifyIf _ _ _ _ _ _ = error "Nur mit Argumenten des Typs ATVar soll diese Funktion aufgerufen werden (Check2)"
+
 
 check3UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check3UnifyIf arg2@(CodeArg (ATVar var2 Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
@@ -926,38 +926,3 @@ initRegstack code =
 
 promptWasCalled :: Zielcode -> RegisterKeller
 promptWasCalled code = auswerten (initRegstack code) code
-
-{-
-sAdd2 :: RegisterKeller -> Argument -> Argument -> Pointer
-sAdd2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg ATUnify = sAddWhile2 rs arg e Nil
-sAdd2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg ATPush =
-  if c == Nil
-  then Nil
-  else sAddWhile2 rs arg (safePointerFromStackAtLocation (c+<-3) stack) Nil
-sAdd2 _ _ _ = error "Nur ATPush/ATUnify Argumente als drittes Element"
-
-sAddWhile2 :: RegisterKeller -> Argument -> Pointer -> Pointer  -> Pointer
-sAddWhile2 rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg i add
-   |isSymbolSameAsInArg arg (stackItemAtLocation i stack) = i
-   |not $ isATEndEnv (stackItemAtLocation i stack) && add == Nil =  sAddWhile2 rs arg (i+<-1) $ sAddIfThenElse rs arg i add
-   |otherwise =  add
-
-isSymbolSameAsInArg:: Argument -> StackElement -> Bool
-isSymbolSameAsInArg (ATVar symb add) (CodeArg (ATVar symb2 add2)) = symb == symb
-isSymbolSameAsInArg _ _ = False
-
-isATEndEnv :: StackElement  -> Bool
-isATEndEnv (CodeArg (ATEndEnv _)) = True
-isATEndEnv _ = False
-
-sAddIfThenElse :: RegisterKeller -> Argument -> Pointer -> Pointer -> Pointer
-sAddIfThenElse rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) arg@(ATVar symb pointer) i add =
-  if isVarSameSymbol arg (stackItemAtLocation i stack)
-    then pointer
-    else add
-sAddIfThenElse _ _ _ _ = error "arg is supposed to be ATVar"
-
-isVarSameSymbol :: Argument -> StackElement -> Bool
-isVarSameSymbol (ATVar symb _) (CodeArg (ATVar symb2 _)) = symb == symb2
-isVarSameSymbol _ _ = False
--}
