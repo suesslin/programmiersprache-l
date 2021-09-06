@@ -392,7 +392,7 @@ returnLPos :: RegisterKeller -> RegisterKeller
 returnLPos ((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   let p' = safePointerFromStackAtLocation (r + 1) stack
       e' = safePointerFromStackAtLocation (r + 2) stack
-   in if stackItemAtLocation r stack /= CodeAddress Nil
+   in if stackItemAtLocation r stack /= StackAddress Nil
         then
           ( (b, t, c, safePointerFromStackAtLocation r stack + 1, p', up, e', ut, tt, pc, sc, ac),
             (stack, us, trail)
@@ -823,7 +823,7 @@ unifyProzedur add1 add2 all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, a
 
 unifyProzedur' :: Bool -> MLStack -> RegisterKeller -> RegisterKeller
 unifyProzedur' weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
-  if weiter && not (stackEmpty hilfsstack)
+  if weiter && not (stackEmpty hilfsstack) && stackSizeOf hilfsstack > stackSizeOf stack
     then check2Unify (getD (stackPeekTop hilfsstack) hilfsstack) (getD (stackPeekTop (stackPop hilfsstack)) hilfsstack) weiter (stackPop $ stackPop hilfsstack) all
     else ((not weiter, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
 
