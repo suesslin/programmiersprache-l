@@ -620,10 +620,12 @@ displayTerm add stack akk = case stackItemAtLocation (deref stack add) stack of
     if isPNil p
       then akk <> show sym
       else error "Unexpected ATVar at displayTerm"
+  (CodeArg (ATStr sym 0)) -> 
+    akk <> show sym 
   (CodeArg (ATStr sym _)) ->
     if add + 1 < Pointer (stackSizeOf stack)
       then displayTerm (deref stack add + 1) stack (concat [akk, show sym, "("]) <> ")"
-      else akk
+      else akk <> show sym 
   _ -> "Unexpected display Term call"
 
 isStackElemEndEnv :: StackElement -> Bool
@@ -751,7 +753,7 @@ addToStackAndTrailVar :: Argument -> Argument -> RegisterKeller -> RegisterKelle
 addToStackAndTrailVar
   arg@(ATVar var add)
   arg2@(ATVar var2 add2)
-  all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
+  all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =  
     ( (b, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
       ( stackReplaceAtLocationMLStack (deref stack (sAdd all arg ATUnify)) (CodeArg (ATVar var2 up)) stack,
         us,
@@ -838,7 +840,7 @@ getD (CodeArg (ATVar _ pointer)) stack = deref stack pointer
 getD (CodeArg _) _ = Nil
 
 check2Unify :: Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
-check2Unify d1 d2 weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
+check2Unify d1 d2 weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = 
   if d1 /= d2
     then
       let arg = stackItemAtLocation d1 stack
@@ -847,16 +849,14 @@ check2Unify d1 d2 weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, ut, t
 
 check2UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check2UnifyIf arg@(CodeArg (ATVar var Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) = 
-    ( (not weiter, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
+    ((not weiter, t, c, r, p, up, e, ut, tt + 1, pc, sc, ac),
       ( stackReplaceAtLocationMLStack d1 (CodeArg (ATVar var d2)) stack,
         us,
         stackReplaceAtLocationMLStack (tt + 1) (StackAddress d1) trail
-      )
-    )
+      ))
 check2UnifyIf _ d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
   let arg2 = stackItemAtLocation d2 stack
    in check3UnifyIf arg2 d1 d2 weiter hilfsstack all
-
 
 check3UnifyIf :: StackElement -> Pointer -> Pointer -> Bool -> MLStack -> RegisterKeller -> RegisterKeller
 check3UnifyIf arg2@(CodeArg (ATVar var2 Nil)) d1 d2 weiter hilfsstack all@((b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail)) =
@@ -901,7 +901,7 @@ pushD1D2 d1 d2 i arity weiter hilfsstack all@(addressreg@(b, t, c, r, p, up, e, 
 auswerten :: RegisterKeller -> Zielcode -> RegisterKeller
 auswerten
   rs@(addressreg@(b, t, c, r, p, up, e, ut, tt, pc, sc, ac), (stack, us, trail))
-  code =
+  code = 
     let cmd = stackItemAtLocation (pToInt p) code
      in ( if Prompt prompt == cmd
             then rs
