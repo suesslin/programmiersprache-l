@@ -5,7 +5,10 @@ Ziel ist es die im Skript »Übersetzerbau – Abstrakte Maschinen« von den Au
 ## Abstrakte Maschine: MiniL, GroundL, ML
 Wir haben mit MiniL angefangen und sind bis zu ML gekommen. Auf diesem Weg wurden »alte« Implementierungen gestrichen. Dies betrifft beispielsweise auch die explizite Behandlung der Negation durch Scheitern. 
 
-In der Git-Historie kann jedoch nach Implementationen geschaut werden, sollten diese doch relevant sein. Aufgrund der Einfachheit haben wir darauf verzichtet, veraltete Implementationen als »dead code« zu behalten.
+In der Git-Historie kann jedoch nach Implementationen geschaut werden, sollten diese doch relevant sein. Aufgrund der Einfachheit haben wir überwiegend darauf verzichtet, veraltete Implementationen als »dead code« zu behalten.
+
+## Benotung
+Nach der abschließenden Präsentation am 13.09.2021 erhielten alle Gruppenmitglieder die Note 1,0 („sehr gut“).
 
 ## Genutzte Technologien
 * Programmiersprache: [Haskell](http://haskell.org/)
