@@ -16,7 +16,7 @@ tokenize' (',' : xs) akk = tokenize' xs (akk ++ [And])
 tokenize' ('(' : xs) akk = tokenize' xs (akk ++ [KlammerAuf])
 tokenize' (')' : xs) akk = tokenize' xs (akk ++ [KlammerZu])
 tokenize' ('n' : 'o' : 't' : x : xs) akk
-  | not (isLetter x || isDigit x) = tokenize' (x : xs) (akk ++ [Not])
+  | not (isAllowed x) = tokenize' (x : xs) (akk ++ [Not])
   | otherwise = tokenize' (dropWhile isAllowed (x : xs)) (akk ++ [Name (takeWhile isAllowed ("not" ++ (x : xs)))])
 tokenize' (x : xs) akk
   | isSpace x = tokenize' xs akk
