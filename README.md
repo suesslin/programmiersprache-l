@@ -19,4 +19,4 @@ Nach der abschließenden Präsentation am 13.09.2021 erhielten alle Gruppenmitgl
 ## Gruppenmitglieder
 * [D'Amelio Marco](damelio@cip.ifi.lmu.de)
 * [Seilmaier Maximilian](seilmaier@cip.ifi.lmu.de)
-* [Süsslin Lukas](muellerlu@cip.ifi.lmu.de)
+* [Süsslin Lou](suesslin@pm.me)
