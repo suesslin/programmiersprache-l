@@ -17,6 +17,6 @@ Nach der abschließenden Präsentation am 13.09.2021 erhielten alle Gruppenmitgl
 * Build tool: [stack](https://hackage.haskell.org/package/stack)
 
 ## Gruppenmitglieder
-* [D'Amelio Marco](damelio@cip.ifi.lmu.de)
-* [Seilmaier Maximilian](seilmaier@cip.ifi.lmu.de)
-* [Süsslin Lou](suesslin@pm.me)
+* [D'Amelio Marco](mailto:damelio@cip.ifi.lmu.de)
+* [Seilmaier Maximilian](mailto:seilmaier@cip.ifi.lmu.de)
+* [Süsslin Lou](mailto:suesslin@pm.me)
